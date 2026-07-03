@@ -19,44 +19,39 @@ VOICES = [
 # HuggingFace base URL for voice models
 HF_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
 
-def download_voice(name: str) -> None:
-    """Download voice model using Piper's built-in downloader."""
-    onnx_file = VOICES_DIR / f"{name}.onnx"
-    json_file = VOICES_DIR / f"{name}.onnx.json"
-
-    if onnx_file.exists() and json_file.exists():
-        print(f"✓ {name} already exists")
-        return
-
-    print(f"Downloading {name}...")
-    try:
-        # Use piper's built-in download utility
-        cmd = ["python", "-m", "piper.download_voices", "--output-dir", str(VOICES_DIR), "--voice", name]
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        print(f"✓ {name} downloaded")
-    except subprocess.CalledProcessError as e:
-        print(f"✗ Failed to download {name}")
-        print(f"  Error: {e.stderr}")
-        print(f"\n  Manual download: visit https://huggingface.co/rhasspy/piper-voices")
-    except Exception as e:
-        print(f"✗ Error: {e}")
-
-if __name__ == "__main__":
+def download_voices_batch() -> None:
+    """Download all voices using Piper's built-in downloader."""
     print("Downloading Piper voice models from HuggingFace...")
     print("(https://huggingface.co/rhasspy/piper-voices)\n")
 
-    for voice_name in VOICES:
-        download_voice(voice_name)
+    try:
+        # Use piper's built-in download utility with correct arguments
+        cmd = ["python", "-m", "piper.download_voices", "--download-dir", str(VOICES_DIR)] + VOICES
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print(result.stdout)
+        if result.returncode == 0:
+            print(f"✓ Downloads complete")
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Download failed")
+        if e.stderr:
+            print(f"  Error: {e.stderr}")
+    except FileNotFoundError:
+        print("✗ piper command not found. Make sure piper-tts is installed:")
+        print("  pip install piper-tts")
+
+if __name__ == "__main__":
+    download_voices_batch()
+
 
     # Verify
-    downloaded = list(VOICES_DIR.glob("*.onnx"))
-    if downloaded:
-        print(f"\n✓ Ready! Found {len(downloaded)} voice model(s)")
-        for f in sorted(downloaded):
+    imported = list(VOICES_DIR.glob("**/*.onnx"))
+    if imported:
+        print(f"\n✓ Ready! Found {len(imported)} voice model(s):")
+        for f in sorted(imported):
             print(f"  - {f.name}")
     else:
-        print("\n✗ No voices found.")
+        print("\n✗ No voices found after download.")
         print("\nManual download options:")
-        print("  1. Use piper directly: python -m piper.download_voices")
-        print("  2. Visit: https://huggingface.co/rhasspy/piper-voices")
-        print("  3. Extract .onnx and .onnx.json files to voices/ directory")
+        print("  1. Visit: https://huggingface.co/rhasspy/piper-voices")
+        print("  2. Download .onnx + .onnx.json pairs for voices you want")
+        print("  3. Extract to voices/ directory (flat structure)")

@@ -27,8 +27,7 @@ python download_voices.py
 
 ```bash
 source venv/bin/activate
-python -m piper.download_voices --output-dir voices --voice en_US-lessac-medium
-python -m piper.download_voices --output-dir voices --voice en_US-libritts_r-medium
+python -m piper.download_voices --download-dir voices en_US-lessac-medium en_US-libritts_r-medium
 ```
 
 **Manual browser download**:

@@ -14,42 +14,34 @@ pip install -r requirements.txt
 
 ### 2. Download voice models
 
-Visit [OHF Voice releases](https://github.com/OHF-Voice/piper1-gpl/releases) (Piper development moved here).
+Voice models are hosted on [HuggingFace](https://huggingface.co/rhasspy/piper-voices).
 
 **Quick option** — use the helper script:
 
 ```bash
+source venv/bin/activate
 python download_voices.py
 ```
 
-**Manual option** — download and extract directly:
+**Manual option** — use Piper's built-in downloader:
 
 ```bash
-mkdir -p voices
-curl -sSL https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-ryan-medium.tar.gz | tar xz -C voices/
-curl -sSL https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-amy-medium.tar.gz | tar xz -C voices/
+source venv/bin/activate
+python -m piper.download_voices --output-dir voices --voice en_US-lessac-medium
+python -m piper.download_voices --output-dir voices --voice en_US-libritts_r-medium
 ```
+
+**Manual browser download**:
+Visit [piper-voices](https://huggingface.co/rhasspy/piper-voices) and download `.onnx` + `.onnx.json` pairs for desired voices.
 
 Final structure:
 
 ```
 voices/
-├── en_US-ryan-medium/
-│   ├── en_US-ryan-medium.onnx
-│   └── en_US-ryan-medium.onnx.json
-└── en_US-amy-medium/
-    ├── en_US-amy-medium.onnx
-    └── en_US-amy-medium.onnx.json
-```
-
-Or flatten them (rename model paths in `conversation.json` accordingly):
-
-```
-voices/
-├── en_US-ryan-medium.onnx
-├── en_US-ryan-medium.onnx.json
-├── en_US-amy-medium.onnx
-└── en_US-amy-medium.onnx.json
+├── en_US-lessac-medium.onnx
+├── en_US-lessac-medium.onnx.json
+├── en_US-libritts_r-medium.onnx
+└── en_US-libritts_r-medium.onnx.json
 ```
 
 ## Usage

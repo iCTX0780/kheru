@@ -1,30 +1,26 @@
 #!/usr/bin/env python3
-"""Download Piper voice models from OHF Voice repository.
+"""Download Piper voice models from HuggingFace.
 
-Manual download:
-Visit https://github.com/OHF-Voice/piper1-gpl/releases and download voice files,
-then extract to voices/ directory.
-
-Example:
-  curl -sSL https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-ryan-medium.tar.gz | tar xz -C voices/
+Voice models are hosted at: https://huggingface.co/rhasspy/piper-voices
 """
 
 import subprocess
-import urllib.request
 from pathlib import Path
 
 VOICES_DIR = Path("voices")
 VOICES_DIR.mkdir(exist_ok=True)
 
-# Voice model URLs - these are from OHF Voice (Piper moved here)
-# Latest releases: https://github.com/OHF-Voice/piper1-gpl/releases
-VOICES = {
-    "en_US-ryan-medium": "https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-ryan-medium.tar.gz",
-    "en_US-amy-medium": "https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-amy-medium.tar.gz",
-}
+# Voice names to download from HuggingFace
+VOICES = [
+    "en_US-lessac-medium",
+    "en_US-libritts_r-medium",
+]
 
-def download_voice(name: str, url: str) -> None:
-    """Download and extract a voice model."""
+# HuggingFace base URL for voice models
+HF_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
+
+def download_voice(name: str) -> None:
+    """Download voice model using Piper's built-in downloader."""
     onnx_file = VOICES_DIR / f"{name}.onnx"
     json_file = VOICES_DIR / f"{name}.onnx.json"
 
@@ -34,22 +30,33 @@ def download_voice(name: str, url: str) -> None:
 
     print(f"Downloading {name}...")
     try:
-        cmd = f"curl -sSL '{url}' | tar xz -C {VOICES_DIR}"
-        subprocess.run(cmd, shell=True, check=True)
+        # Use piper's built-in download utility
+        cmd = ["python", "-m", "piper.download_voices", "--output-dir", str(VOICES_DIR), "--voice", name]
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print(f"✓ {name} downloaded")
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Failed to download {name}")
+        print(f"  Error: {e.stderr}")
+        print(f"\n  Manual download: visit https://huggingface.co/rhasspy/piper-voices")
     except Exception as e:
-        print(f"✗ Failed to download {name}: {e}")
-        print(f"  Try manual download: {url}")
+        print(f"✗ Error: {e}")
 
 if __name__ == "__main__":
-    for voice_name, voice_url in VOICES.items():
-        download_voice(voice_name, voice_url)
+    print("Downloading Piper voice models from HuggingFace...")
+    print("(https://huggingface.co/rhasspy/piper-voices)\n")
+
+    for voice_name in VOICES:
+        download_voice(voice_name)
 
     # Verify
     downloaded = list(VOICES_DIR.glob("*.onnx"))
     if downloaded:
-        print(f"\n✓ Found {len(downloaded)} voice model(s)")
+        print(f"\n✓ Ready! Found {len(downloaded)} voice model(s)")
+        for f in sorted(downloaded):
+            print(f"  - {f.name}")
     else:
-        print("\n✗ No voices found. Download voices manually from:")
-        print("  https://github.com/OHF-Voice/piper1-gpl/releases")
-        print("  Extract .tar.gz files to voices/ directory")
+        print("\n✗ No voices found.")
+        print("\nManual download options:")
+        print("  1. Use piper directly: python -m piper.download_voices")
+        print("  2. Visit: https://huggingface.co/rhasspy/piper-voices")
+        print("  3. Extract .onnx and .onnx.json files to voices/ directory")

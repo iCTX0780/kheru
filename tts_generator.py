@@ -13,9 +13,11 @@ def synth_line(text: str, voice: str, out_path: Path) -> None:
     model = VOICES_DIR / f"{voice}.onnx"
     if not model.exists():
         raise FileNotFoundError(
-            f"Voice model not found: {model}\n"
-            f"Download voices with: python download_voices.py\n"
-            f"Or manually download from: https://github.com/OHF-Voice/piper1-gpl/releases"
+            f"Voice model not found: {model}\n\n"
+            f"Download with: python download_voices.py\n"
+            f"Or use Piper's built-in downloader:\n"
+            f"  python -m piper.download_voices --output-dir voices --voice {voice}\n\n"
+            f"Browse voices: https://huggingface.co/rhasspy/piper-voices"
         )
     cmd = ["piper", "--model", str(model), "--output_file", str(out_path)]
     proc = subprocess.run(cmd, input=text, text=True, capture_output=True)

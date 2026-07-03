@@ -2,17 +2,17 @@
   "conversation": [
     {
       "speaker": "adam",
-      "voice": "en_US-ryan-medium",
+      "voice": "en_US-lessac-medium",
       "text": "Hey, thanks for making the time. I wanted to walk through the numbers with you."
     },
     {
       "speaker": "alice",
-      "voice": "en_US-amy-medium",
+      "voice": "en_US-libritts_r-medium",
       "text": "Of course. I've got about twenty minutes before my next call, so let's dive in."
     },
     {
       "speaker": "adam",
-      "voice": "en_US-ryan-medium",
+      "voice": "en_US-lessac-medium",
       "text": "Perfect. So here's where we landed last quarter..."
     }
   ]

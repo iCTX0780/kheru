@@ -46,7 +46,7 @@ def concat_wavs(clips: list[Path], output_file: Path, gap: float = GAP_SECONDS) 
                 out.writeframes(silence)
 
 
-def generate(conversation_file: str, output_file: str = "rehearsal.wav", length_scale: float = 1.2) -> None:
+def generate(conversation_file: str, output_file: str = "rehearsal.wav") -> None:
     TEMP_DIR.mkdir(exist_ok=True)
 
     with open(conversation_file) as f:
@@ -56,6 +56,8 @@ def generate(conversation_file: str, output_file: str = "rehearsal.wav", length_
     for idx, turn in enumerate(data["conversation"]):
         clip_path = TEMP_DIR / f"turn_{idx:03d}.wav"
         print(f"[{turn['speaker']}] {turn['text'][:60]}...")
+        # Use different speeds for male vs female for natural flow
+        length_scale = 1.2 if turn['speaker'] == 'shadi' else 1.0
         synth_line(turn["text"], turn["voice"], clip_path, length_scale=length_scale)
         clips.append(clip_path)
 

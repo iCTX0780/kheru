@@ -8,7 +8,7 @@ TEMP_DIR = Path("temp")
 GAP_SECONDS = 0.4  # pause inserted between speaker turns
 
 
-def synth_line(text: str, voice: str, out_path: Path) -> None:
+def synth_line(text: str, voice: str, out_path: Path, length_scale: float = 1.2) -> None:
     """Generate a single WAV clip for one line using Piper."""
     model = VOICES_DIR / f"{voice}.onnx"
     if not model.exists():
@@ -18,7 +18,7 @@ def synth_line(text: str, voice: str, out_path: Path) -> None:
             f"Or manually: python -m piper.download_voices --download-dir voices {voice}\n"
             f"Browse: https://huggingface.co/rhasspy/piper-voices"
         )
-    cmd = ["piper", "--model", str(model), "--output_file", str(out_path)]
+    cmd = ["piper", "--model", str(model), "--output_file", str(out_path), "--length_scale", str(length_scale)]
     proc = subprocess.run(cmd, input=text, text=True, capture_output=True)
     if proc.returncode != 0:
         raise RuntimeError(f"Piper failed for '{text[:40]}...': {proc.stderr}")
@@ -46,7 +46,7 @@ def concat_wavs(clips: list[Path], output_file: Path, gap: float = GAP_SECONDS) 
                 out.writeframes(silence)
 
 
-def generate(conversation_file: str, output_file: str = "rehearsal.wav") -> None:
+def generate(conversation_file: str, output_file: str = "rehearsal.wav", length_scale: float = 1.2) -> None:
     TEMP_DIR.mkdir(exist_ok=True)
 
     with open(conversation_file) as f:
@@ -56,7 +56,7 @@ def generate(conversation_file: str, output_file: str = "rehearsal.wav") -> None
     for idx, turn in enumerate(data["conversation"]):
         clip_path = TEMP_DIR / f"turn_{idx:03d}.wav"
         print(f"[{turn['speaker']}] {turn['text'][:60]}...")
-        synth_line(turn["text"], turn["voice"], clip_path)
+        synth_line(turn["text"], turn["voice"], clip_path, length_scale=length_scale)
         clips.append(clip_path)
 
     concat_wavs(clips, Path(output_file))

@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 ### 2. Download voice models
 
-Visit [Piper releases](https://github.com/rhasspy/piper/releases) and download voice models.
+Visit [OHF Voice releases](https://github.com/OHF-Voice/piper1-gpl/releases) (Piper development moved here).
 
 **Quick option** — use the helper script:
 
@@ -26,8 +26,8 @@ python download_voices.py
 
 ```bash
 mkdir -p voices
-curl -sSL https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-ryan-medium.tar.gz | tar xz -C voices/
-curl -sSL https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-amy-medium.tar.gz | tar xz -C voices/
+curl -sSL https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-ryan-medium.tar.gz | tar xz -C voices/
+curl -sSL https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-amy-medium.tar.gz | tar xz -C voices/
 ```
 
 Final structure:

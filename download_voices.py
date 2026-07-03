@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Download Piper voice models.
+"""Download Piper voice models from OHF Voice repository.
 
 Manual download:
-Visit https://github.com/rhasspy/piper/releases and download .tar.gz voice files,
+Visit https://github.com/OHF-Voice/piper1-gpl/releases and download voice files,
 then extract to voices/ directory.
 
 Example:
-  curl -sSL https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-ryan-medium.tar.gz | tar xz -C voices/
+  curl -sSL https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-ryan-medium.tar.gz | tar xz -C voices/
 """
 
 import subprocess
@@ -16,10 +16,11 @@ from pathlib import Path
 VOICES_DIR = Path("voices")
 VOICES_DIR.mkdir(exist_ok=True)
 
-# Voice model URLs - these are from official Piper GitHub releases
+# Voice model URLs - these are from OHF Voice (Piper moved here)
+# Latest releases: https://github.com/OHF-Voice/piper1-gpl/releases
 VOICES = {
-    "en_US-ryan-medium": "https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-ryan-medium.tar.gz",
-    "en_US-amy-medium": "https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-amy-medium.tar.gz",
+    "en_US-ryan-medium": "https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-ryan-medium.tar.gz",
+    "en_US-amy-medium": "https://github.com/OHF-Voice/piper1-gpl/releases/download/2024.1.1/en_US-amy-medium.tar.gz",
 }
 
 def download_voice(name: str, url: str) -> None:
@@ -50,5 +51,5 @@ if __name__ == "__main__":
         print(f"\n✓ Found {len(downloaded)} voice model(s)")
     else:
         print("\n✗ No voices found. Download voices manually from:")
-        print("  https://github.com/rhasspy/piper/releases")
+        print("  https://github.com/OHF-Voice/piper1-gpl/releases")
         print("  Extract .tar.gz files to voices/ directory")

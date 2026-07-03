@@ -15,7 +15,7 @@ def synth_line(text: str, voice: str, out_path: Path) -> None:
         raise FileNotFoundError(
             f"Voice model not found: {model}\n"
             f"Download voices with: python download_voices.py\n"
-            f"Or manually download from: https://github.com/rhasspy/piper/releases"
+            f"Or manually download from: https://github.com/OHF-Voice/piper1-gpl/releases"
         )
     cmd = ["piper", "--model", str(model), "--output_file", str(out_path)]
     proc = subprocess.run(cmd, input=text, text=True, capture_output=True)

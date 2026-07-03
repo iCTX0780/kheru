@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
-"""Download Piper voice models."""
+"""Download Piper voice models.
 
+Manual download:
+Visit https://github.com/rhasspy/piper/releases and download .tar.gz voice files,
+then extract to voices/ directory.
+
+Example:
+  curl -sSL https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-ryan-medium.tar.gz | tar xz -C voices/
+"""
+
+import subprocess
 import urllib.request
 from pathlib import Path
 
 VOICES_DIR = Path("voices")
 VOICES_DIR.mkdir(exist_ok=True)
 
-# Voice model URLs from official Piper release
+# Voice model URLs - these are from official Piper GitHub releases
 VOICES = {
-    "en_US-ryan-medium": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/medium/en_US-ryan-medium.tar.gz",
-    "en_US-amy-medium": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.tar.gz",
+    "en_US-ryan-medium": "https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-ryan-medium.tar.gz",
+    "en_US-amy-medium": "https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-amy-medium.tar.gz",
 }
 
 def download_voice(name: str, url: str) -> None:
@@ -18,28 +27,28 @@ def download_voice(name: str, url: str) -> None:
     onnx_file = VOICES_DIR / f"{name}.onnx"
     json_file = VOICES_DIR / f"{name}.onnx.json"
 
-    # Skip if already downloaded
     if onnx_file.exists() and json_file.exists():
-        print(f"✓ {name} already downloaded")
+        print(f"✓ {name} already exists")
         return
 
     print(f"Downloading {name}...")
     try:
-        import tarfile
-        import tempfile
-
-        tar_path = Path(tempfile.gettempdir()) / f"{name}.tar.gz"
-        urllib.request.urlretrieve(url, tar_path)
-
-        with tarfile.open(tar_path) as tar:
-            tar.extractall(VOICES_DIR)
-
-        tar_path.unlink()
+        cmd = f"curl -sSL '{url}' | tar xz -C {VOICES_DIR}"
+        subprocess.run(cmd, shell=True, check=True)
         print(f"✓ {name} downloaded")
     except Exception as e:
         print(f"✗ Failed to download {name}: {e}")
+        print(f"  Try manual download: {url}")
 
 if __name__ == "__main__":
     for voice_name, voice_url in VOICES.items():
         download_voice(voice_name, voice_url)
-    print("\nDone! Voices are ready in voices/")
+
+    # Verify
+    downloaded = list(VOICES_DIR.glob("*.onnx"))
+    if downloaded:
+        print(f"\n✓ Found {len(downloaded)} voice model(s)")
+    else:
+        print("\n✗ No voices found. Download voices manually from:")
+        print("  https://github.com/rhasspy/piper/releases")
+        print("  Extract .tar.gz files to voices/ directory")

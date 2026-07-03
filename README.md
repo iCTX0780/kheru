@@ -4,27 +4,45 @@ A lightweight, fully local pipeline that turns a multi-speaker conversation scri
 
 ## Setup
 
-### 1. Install Piper
+### 1. Set up Python environment
 
 ```bash
-pip install piper-tts
+python3 -m venv venv
+source venv/bin/activate  # or: . venv/bin/activate on Windows
+pip install -r requirements.txt
 ```
 
-### 2. Create voices directory
+### 2. Download voice models
+
+Visit [Piper releases](https://github.com/rhasspy/piper/releases) and download voice models.
+
+**Quick option** — use the helper script:
 
 ```bash
-mkdir voices
+python download_voices.py
 ```
 
-### 3. Download voice models
+**Manual option** — download and extract directly:
 
-Download `.onnx` and `.onnx.json` file pairs from the [Piper voice catalogue](https://github.com/rhasspy/piper/blob/master/VOICES.md).
+```bash
+mkdir -p voices
+curl -sSL https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-ryan-medium.tar.gz | tar xz -C voices/
+curl -sSL https://github.com/rhasspy/piper/releases/download/2024.1.1/voice-en_US-amy-medium.tar.gz | tar xz -C voices/
+```
 
-Suggested voices:
-- **Male**: `en_US-ryan-medium`
-- **Female**: `en_US-amy-medium` or `en_US-kristin-medium`
+Final structure:
 
-Place them in the `voices/` directory:
+```
+voices/
+├── en_US-ryan-medium/
+│   ├── en_US-ryan-medium.onnx
+│   └── en_US-ryan-medium.onnx.json
+└── en_US-amy-medium/
+    ├── en_US-amy-medium.onnx
+    └── en_US-amy-medium.onnx.json
+```
+
+Or flatten them (rename model paths in `conversation.json` accordingly):
 
 ```
 voices/

@@ -2,7 +2,7 @@
   "conversation": [
     {
       "speaker": "adam",
-      "voice": "en_US-lessac-medium",
+      "voice": "en_US-ryan-medium",
       "text": "Hey, thanks for making the time. I wanted to walk through the numbers with you."
     },
     {
@@ -12,7 +12,7 @@
     },
     {
       "speaker": "adam",
-      "voice": "en_US-lessac-medium",
+      "voice": "en_US-ryan-medium",
       "text": "Perfect. So here's where we landed last quarter..."
     }
   ]

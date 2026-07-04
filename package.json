@@ -1,0 +1,16 @@
+{
+  "name": "voxlab",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "make dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "make dev-api",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
+    "typecheck": "pnpm --filter web exec tsc -p tsconfig.app.json --noEmit"
+  }
+}

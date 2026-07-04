@@ -1,87 +1,81 @@
-# TTS Conversation Generator
+# VoxLab
 
-A lightweight, fully local pipeline that turns a multi-speaker conversation script into a single audio file using Piper TTS.
+Local, offline text-to-speech rehearsal studio. Paste a `Speaker: dialogue` script, assign voices per character, and generate a stitched WAV using Piper TTS.
+
+## Structure
+
+```
+tts/
+├── apps/
+│   ├── api/          # FastAPI backend + Docker
+│   └── web/          # React + Vite frontend
+├── voices/           # Piper models (git-ignored; see Setup)
+├── download_voices.py
+└── Makefile
+```
 
 ## Setup
 
-### 1. Set up Python environment
+### 1. Voice models
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate  # or: . venv/bin/activate on Windows
-pip install -r requirements.txt
-```
-
-### 2. Download voice models
-
-Voice models are hosted on [HuggingFace](https://huggingface.co/rhasspy/piper-voices).
-
-**Quick option** — use the helper script:
-
-```bash
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
+pip install piper-tts
 python download_voices.py
 ```
 
-**Manual option** — use Piper's built-in downloader:
+Models land in `voices/` as `.onnx` + `.onnx.json` pairs.
+
+### 2. Frontend
 
 ```bash
-source venv/bin/activate
-python -m piper.download_voices --download-dir voices en_US-lessac-medium en_US-libritts_r-medium
+nvm use          # Node 22
+pnpm install
 ```
 
-**Manual browser download**:
-Visit [piper-voices](https://huggingface.co/rhasspy/piper-voices) and download `.onnx` + `.onnx.json` pairs for desired voices.
-
-Final structure:
-
-```
-voices/
-├── en_US-lessac-medium.onnx
-├── en_US-lessac-medium.onnx.json
-├── en_US-libritts_r-medium.onnx
-└── en_US-libritts_r-medium.onnx.json
-```
-
-## Usage
-
-### 1. Edit `conversation.json`
-
-Define your multi-speaker dialogue:
-
-```json
-{
-  "conversation": [
-    {
-      "speaker": "adam",
-      "voice": "en_US-ryan-medium",
-      "text": "Hey, thanks for making the time."
-    },
-    {
-      "speaker": "alice",
-      "voice": "en_US-amy-medium",
-      "text": "Of course. Let's dive in."
-    }
-  ]
-}
-```
-
-### 2. Generate audio
+### 3. Backend
 
 ```bash
-python tts_generator.py
+cd apps/api
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Output: `rehearsal.wav`
+## Development
 
-## Tuning
+Run API and web in separate terminals:
 
-Edit `tts_generator.py` to adjust:
-- `GAP_SECONDS` — pause between speaker turns (default: 0.4)
-- Add `--length-scale` to `synth_line()` for speed control (e.g., `1.1` = slower)
+```bash
+make dev-api    # http://localhost:8000
+make dev-web    # http://localhost:5173 (proxies /api to :8000)
+```
 
-## Tips
+Or with Docker:
 
-- Use `medium` or `high` quality models for natural sound
-- Punctuation shapes prosody — write the way it should be *spoken*
-- Audition voices at [Piper samples](https://rhasspy.github.io/piper-samples/)
+```bash
+make docker-up  # API + legacy HTML UI at http://localhost:8000
+```
+
+## API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/voices` | List available voices |
+| GET | `/api/speakers` | List saved speaker profiles |
+| POST | `/api/speakers` | Save a speaker profile |
+| DELETE | `/api/speakers/{name}` | Delete a profile |
+| POST | `/api/generate` | Generate conversation audio |
+| GET | `/api/audio/{run_id}` | Download generated WAV |
+
+## Script format
+
+```
+Alice: Hello, welcome to the interview.
+Bob: Thanks for having me.
+```
+
+## Legacy MVP
+
+The original flat MVP scripts live in `legacy/` for reference.

@@ -1,0 +1,8 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+generated_audio/
+temp/
+*.wav
+speakers.json

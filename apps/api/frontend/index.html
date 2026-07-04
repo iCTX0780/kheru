@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VoxLab</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #fafafa;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+      flex-direction: column;
+    }
+
+    header {
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .toggle-btn {
+      background: #f0f0f0;
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .toggle-btn:hover {
+      background: #e8e8e8;
+    }
+
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .editor {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 1.5rem;
+      background: white;
+    }
+
+    .sidebar {
+      width: 250px;
+      background: #f9f9f9;
+      border-left: 1px solid #e0e0e0;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    .import-panel {
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    .import-panel.open {
+      display: block;
+    }
+
+    .import-panel textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 0.5rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      border: 1px solid #d0d0d0;
+      border-radius: 3px;
+      margin-bottom: 0.5rem;
+      resize: vertical;
+    }
+
+    .turns-container {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 1.5rem;
+    }
+
+    .turn {
+      display: grid;
+      grid-template-columns: 110px 140px 70px 1fr 30px 30px;
+      gap: 8px;
+      margin-bottom: 10px;
+      align-items: start;
+    }
+
+    .turn label {
+      font-size: 0.75rem;
+      color: #666;
+      grid-column: 1 / -1;
+      margin-bottom: -6px;
+      margin-left: 4px;
+    }
+
+    .turn-inputs {
+      display: grid;
+      grid-template-columns: 110px 140px 70px 1fr 30px 30px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    input[type="text"],
+    select,
+    textarea {
+      padding: 8px;
+      font-size: 0.9rem;
+      border: 1px solid #d0d0d0;
+      border-radius: 3px;
+      font-family: inherit;
+    }
+
+    input[type="text"],
+    select {
+      height: 36px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 36px;
+      font-family: system-ui, sans-serif;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+    }
+
+    .speed-label {
+      font-size: 0.8rem;
+      color: #666;
+      text-align: center;
+      margin-top: 2px;
+    }
+
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    button.icon-btn {
+      background: none;
+      color: #666;
+      padding: 4px 8px;
+      font-size: 0.9rem;
+    }
+
+    button.icon-btn:hover {
+      color: #333;
+      background: #f0f0f0;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .controls button {
+      padding: 10px 20px;
+      font-size: 1rem;
+    }
+
+    .controls .add-btn {
+      background: #28a745;
+    }
+
+    .controls .add-btn:hover {
+      background: #1e7e34;
+    }
+
+    .controls .generate-btn {
+      flex: 1;
+      background: #007bff;
+    }
+
+    .controls .generate-btn:hover {
+      background: #0056b3;
+    }
+
+    .result {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f0f0f0;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .result.show {
+      display: block;
+    }
+
+    .result.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .result.success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    audio {
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+
+    .result a {
+      display: inline-block;
+      margin-top: 0.5rem;
+      padding: 8px 16px;
+      background: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 3px;
+    }
+
+    .result a:hover {
+      background: #0056b3;
+    }
+
+    .sidebar h3 {
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      color: #333;
+    }
+
+    .profile {
+      background: white;
+      border: 1px solid #d0d0d0;
+      border-radius: 3px;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .profile-info {
+      flex: 1;
+    }
+
+    .profile-name {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .profile-voice {
+      font-size: 0.8rem;
+      color: #666;
+    }
+
+    .profile .icon-btn {
+      padding: 2px 6px;
+    }
+
+    @media (max-width: 768px) {
+      .main {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid #e0e0e0;
+        max-height: 300px;
+      }
+
+      .turn {
+        grid-template-columns: 1fr;
+      }
+
+      .turn-inputs {
+        grid-template-columns: 1fr;
+      }
+
+      label {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>VoxLab</h1>
+      <div class="header-actions">
+        <button class="toggle-btn" onclick="toggleImport()">📥 Import</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <div class="editor">
+        <div class="import-panel" id="importPanel">
+          <textarea id="importText" placeholder="Paste conversation JSON or speaker lines (Speaker: text format)"></textarea>
+          <button onclick="importScript()">Import</button>
+        </div>
+
+        <div class="turns-container" id="turnsContainer"></div>
+
+        <div class="controls">
+          <button class="add-btn" onclick="addTurn()">+ Add line</button>
+          <button class="generate-btn" onclick="generate()">Generate audio</button>
+        </div>
+
+        <div class="result" id="result"></div>
+      </div>
+
+      <div class="sidebar">
+        <h3>Speaker Profiles</h3>
+        <div id="profilesList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let voices = [];
+    let profiles = {};
+    let voiceMap = {};
+
+    async function loadVoices() {
+      const res = await fetch("/api/voices");
+      const data = await res.json();
+      voices = data.voices;
+      voices.forEach(v => voiceMap[v] = v);
+    }
+
+    async function loadProfiles() {
+      const res = await fetch("/api/speakers");
+      const data = await res.json();
+      profiles = data.profiles;
+      renderProfiles();
+    }
+
+    function renderProfiles() {
+      const list = document.getElementById("profilesList");
+      list.innerHTML = "";
+      for (const [name, profile] of Object.entries(profiles)) {
+        const voiceShort = profile.voice.split("-")[1];
+        const div = document.createElement("div");
+        div.className = "profile";
+        div.innerHTML = `
+          <div class="profile-info">
+            <div class="profile-name">${name}</div>
+            <div class="profile-voice">${voiceShort} @ ${profile.length_scale}x</div>
+          </div>
+          <button class="icon-btn" onclick="deleteProfile('${name}')">×</button>
+        `;
+        list.appendChild(div);
+      }
+    }
+
+    function addTurn(speaker = "", voice = voices[0] || "", text = "", length_scale = 1.0) {
+      const container = document.getElementById("turnsContainer");
+      const row = document.createElement("div");
+      row.className = "turn";
+
+      const voiceOpts = voices.map(v => `<option value="${v}" ${v === voice ? "selected" : ""}>${v}</option>`).join("");
+      const speedValue = length_scale.toFixed(1);
+
+      row.innerHTML = `
+        <label>Speaker</label>
+        <label>Voice</label>
+        <label>Speed</label>
+        <label>Text</label>
+        <label></label>
+        <label></label>
+        <div class="turn-inputs">
+          <input type="text" class="speaker" placeholder="speaker" value="${speaker}" />
+          <select class="voice">${voiceOpts}</select>
+          <div>
+            <input type="range" class="speed" min="0.5" max="2.0" step="0.1" value="${speedValue}" />
+            <div class="speed-label">${speedValue}x</div>
+          </div>
+          <textarea class="text" placeholder="line of dialogue...">${text}</textarea>
+          <button class="icon-btn" onclick="saveTurnAsProfile(this)">💾</button>
+          <button class="icon-btn" onclick="this.closest('.turn').remove()">×</button>
+        </div>
+      `;
+
+      const speedSlider = row.querySelector(".speed");
+      const speedLabel = row.querySelector(".speed-label");
+      speedSlider.addEventListener("input", (e) => {
+        speedLabel.textContent = parseFloat(e.target.value).toFixed(1) + "x";
+      });
+
+      const speakerInput = row.querySelector(".speaker");
+      speakerInput.addEventListener("blur", () => {
+        const name = speakerInput.value;
+        if (name && profiles[name]) {
+          row.querySelector(".voice").value = profiles[name].voice;
+          row.querySelector(".speed").value = profiles[name].length_scale;
+          speedLabel.textContent = profiles[name].length_scale.toFixed(1) + "x";
+        }
+      });
+
+      container.appendChild(row);
+    }
+
+    function saveTurnAsProfile(btn) {
+      const row = btn.closest(".turn");
+      const speaker = row.querySelector(".speaker").value;
+      if (!speaker) {
+        alert("Enter a speaker name first");
+        return;
+      }
+      const voice = row.querySelector(".voice").value;
+      const length_scale = parseFloat(row.querySelector(".speed").value);
+
+      fetch("/api/speakers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: speaker, voice, length_scale })
+      }).then(async (res) => {
+        if (res.ok) {
+          await loadProfiles();
+          alert(`Saved profile: ${speaker}`);
+        }
+      });
+    }
+
+    async function deleteProfile(name) {
+      if (!confirm(`Delete profile "${name}"?`)) return;
+      const res = await fetch(`/api/speakers/${name}`, { method: "DELETE" });
+      if (res.ok) {
+        delete profiles[name];
+        renderProfiles();
+      }
+    }
+
+    function toggleImport() {
+      document.getElementById("importPanel").classList.toggle("open");
+    }
+
+    function importScript() {
+      const text = document.getElementById("importText").value.trim();
+      if (!text) return;
+
+      const turns = [];
+      try {
+        if (text.startsWith("{")) {
+          const data = JSON.parse(text);
+          if (data.conversation) {
+            turns.push(...data.conversation);
+          }
+        } else {
+          const lines = text.split("\n");
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.includes(":")) continue;
+            const [speaker, ...rest] = trimmed.split(":");
+            turns.push({
+              speaker: speaker.trim(),
+              voice: "",
+              text: rest.join(":").trim(),
+              length_scale: 1.0
+            });
+          }
+        }
+      } catch (e) {
+        alert("Failed to parse import: " + e.message);
+        return;
+      }
+
+      document.getElementById("turnsContainer").innerHTML = "";
+      for (const turn of turns) {
+        const profile = profiles[turn.speaker];
+        addTurn(
+          turn.speaker,
+          turn.voice || profile?.voice || voices[0] || "",
+          turn.text,
+          turn.length_scale || profile?.length_scale || 1.0
+        );
+      }
+
+      document.getElementById("importPanel").classList.remove("open");
+      document.getElementById("importText").value = "";
+    }
+
+    async function generate() {
+      const rows = document.querySelectorAll(".turn-inputs");
+      const conversation = [...rows].map((r) => ({
+        speaker: r.querySelector(".speaker").value || "speaker",
+        voice: r.querySelector(".voice").value,
+        text: r.querySelector(".text").value,
+        length_scale: parseFloat(r.querySelector(".speed").value)
+      })).filter(t => t.text.trim());
+
+      if (!conversation.length) {
+        alert("No dialogue to generate");
+        return;
+      }
+
+      const result = document.getElementById("result");
+      result.className = "result show";
+      result.textContent = "Generating...";
+
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        result.className = "result show success";
+        result.innerHTML = `
+          <strong>✓ Done!</strong><br/>
+          <audio controls src="${data.download_url}"></audio><br/>
+          <a href="${data.download_url}" download>⬇️ Download WAV</a>
+        `;
+      } else {
+        result.className = "result show error";
+        result.textContent = "Error: " + data.error;
+      }
+    }
+
+    // Init
+    Promise.all([loadVoices(), loadProfiles()]).then(() => {
+      // Start with 2 empty rows
+      addTurn();
+      addTurn();
+    });
+  </script>
+</body>
+</html>

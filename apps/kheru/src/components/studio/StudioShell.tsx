@@ -64,9 +64,9 @@ export function StudioShell({
   const importParagraphs = useStudioStore((s) => s.importParagraphs)
 
   const handleImport = () => {
-    const texts = parseImportScript(importText)
-    if (texts.length === 0) return
-    importParagraphs(texts)
+    const blocks = parseImportScript(importText)
+    if (blocks.length === 0) return
+    importParagraphs(blocks)
     setImportText('')
     setImportOpen(false)
   }
@@ -154,20 +154,23 @@ export function StudioShell({
         </div>
 
         <Dialog open={importOpen} onOpenChange={setImportOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
+          <DialogContent className="!flex max-h-[min(90dvh,40rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+            <DialogHeader className="shrink-0 gap-2 border-b border-border px-4 py-4">
               <DialogTitle>Import script</DialogTitle>
               <DialogDescription>
-                Paste lines in Speaker: dialogue format — speaker names are ignored.
+                Paste a script with speaker labels (INTERVIEWER:, YOU:, etc.). Wrapped lines merge
+                into the previous turn. INTERVIEWER → Heart, YOU → Michael by default.
               </DialogDescription>
             </DialogHeader>
-            <Textarea
-              value={importText}
-              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setImportText(e.target.value)}
-              placeholder={'Shadi: Happy to make the time...\nInterviewer: What interests you?'}
-              className="min-h-32 font-mono text-sm"
-            />
-            <DialogFooter>
+            <div className="min-h-0 flex-1 overflow-hidden px-4 py-3">
+              <Textarea
+                value={importText}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setImportText(e.target.value)}
+                placeholder={'INTERVIEWER: Thanks for joining...\nYOU: Sure. I\'m a technical lead...'}
+                className="min-h-32 max-h-[min(55dvh,28rem)] w-full resize-none overflow-y-auto overscroll-contain font-mono text-sm"
+              />
+            </div>
+            <DialogFooter className="shrink-0">
               <Button type="button" variant="outline" onClick={() => setImportOpen(false)}>
                 Cancel
               </Button>

@@ -135,7 +135,7 @@ export function StudioToolbar({
             onClick={() => void onGenerateSelection()}
           >
             <Sparkles data-icon="inline-start" />
-            Generate
+            Generate one
           </Button>
 
           <Button
@@ -147,12 +147,12 @@ export function StudioToolbar({
             {chapterGenerating ? (
               <>
                 <Spinner data-icon="inline-start" />
-                Chapter…
+                Generating…
               </>
             ) : (
               <>
                 <Sparkles data-icon="inline-start" />
-                Chapter
+                Generate all
               </>
             )}
           </Button>

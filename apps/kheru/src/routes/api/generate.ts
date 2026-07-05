@@ -28,13 +28,14 @@ export const Route = createFileRoute('/api/generate')({
         }
 
         try {
-          const { runId, segments, words } = await generateConversation(conversation)
+          const { runId, segments, words, clips } = await generateConversation(conversation)
           jsonStore.appendGeneration({ runId })
           return json({
             run_id: runId,
             audio_url: `/api/audio/${runId}`,
             segments,
             words,
+            clips,
           })
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Generation failed'

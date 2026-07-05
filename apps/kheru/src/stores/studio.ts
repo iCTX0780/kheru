@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { WordTiming } from '@/lib/playback-words'
+import type { ImportBlock } from '@/lib/parse-script'
+import { DEFAULT_VOICE_ID, lengthScaleForSpeaker, voiceForSpeaker, VOICE_BY_ID } from '@/lib/voice-catalog'
 
 export type ParagraphStatus = 'idle' | 'generating' | 'done' | 'stale' | 'error'
 export type ChapterStatus = 'idle' | 'generating' | 'done' | 'stale' | 'error'
@@ -63,12 +65,13 @@ export interface StudioStore {
   setSelectedParagraphId: (id: string | null) => void
   setStudioPlayMode: (mode: StudioPlayMode) => void
   addParagraph: (afterId?: string) => void
-  importParagraphs: (texts: string[]) => void
+  importParagraphs: (blocks: ImportBlock[]) => void
   updateParagraph: (id: string, updates: Partial<Pick<Paragraph, 'text' | 'voice' | 'lengthScale'>>) => void
   removeParagraph: (id: string) => void
   moveParagraph: (id: string, direction: 'up' | 'down') => void
 
   setParagraphGenerating: (id: string) => void
+  setParagraphsGenerating: (ids: string[]) => void
   setParagraphDone: (id: string, audioUrl: string, duration: number, wordTimings?: WordTiming[] | null) => void
   applyParagraphWordTimings: (items: { id: string; wordTimings: WordTiming[] }[]) => void
   setParagraphError: (id: string, message: string) => void
@@ -86,11 +89,12 @@ export interface StudioStore {
 }
 
 function createParagraph(voice: string): Paragraph {
+  const lengthScale = VOICE_BY_ID[voice]?.defaultLengthScale ?? 1.0
   return {
     id: crypto.randomUUID(),
     text: '',
     voice,
-    lengthScale: 1.0,
+    lengthScale,
     audioUrl: null,
     duration: null,
     wordTimings: null,
@@ -219,13 +223,20 @@ export const useStudioStore = create<StudioStore>()(
       }
     }),
 
-  importParagraphs: (texts) =>
+  importParagraphs: (blocks) =>
     set((state) => {
-      const voice = state.voices[0] || ''
-      const imported = texts.filter((t) => t.trim()).map((text) => ({
-        ...createParagraph(voice),
-        text: text.trim(),
-      }))
+      const fallback = state.voices[0] || DEFAULT_VOICE_ID
+      const imported = blocks
+        .filter((block) => block.text.trim())
+        .map((block) => {
+          const voice = voiceForSpeaker(block.speaker, fallback, state.voices)
+          const voiceDefault = VOICE_BY_ID[voice]?.defaultLengthScale ?? 1.0
+          return {
+            ...createParagraph(voice),
+            text: block.text.trim(),
+            lengthScale: lengthScaleForSpeaker(block.speaker, voiceDefault),
+          }
+        })
       return {
         paragraphs: imported.length > 0 ? imported : state.paragraphs,
         chapter: { audioUrl: null, segments: [], status: 'idle' },
@@ -275,6 +286,16 @@ export const useStudioStore = create<StudioStore>()(
         p.id === id ? { ...p, status: 'generating', error: undefined } : p
       ),
     })),
+
+  setParagraphsGenerating: (ids) =>
+    set((state) => {
+      const idSet = new Set(ids)
+      return {
+        paragraphs: state.paragraphs.map((p) =>
+          idSet.has(p.id) ? { ...p, status: 'generating', error: undefined } : p
+        ),
+      }
+    }),
 
   setParagraphDone: (id, audioUrl, duration, wordTimings = null) =>
     set((state) => ({

@@ -29,11 +29,18 @@ export interface GenerateTurn {
   gap_after?: number
 }
 
+export interface GenerateClip {
+  index: number
+  run_id: string
+  audio_url: string
+}
+
 export interface GenerateResponse {
   run_id: string
   audio_url: string
   segments: GenerateSegment[]
   words: GenerateWord[]
+  clips: GenerateClip[]
 }
 
 async function parseError(res: Response): Promise<string> {

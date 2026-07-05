@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { unlinkSync } from 'node:fs'
+import { copyFileSync, unlinkSync } from 'node:fs'
 import { kokoroSpeedFromLengthScale } from '@/lib/speed'
 import { validateVoice } from '@/server/voices/catalog'
 import { synthKokoro } from './kokoro'
@@ -105,11 +105,18 @@ async function synthLine(
   }
 }
 
+export interface ClipRef {
+  index: number
+  run_id: string
+  audio_url: string
+}
+
 export async function generateConversation(
   turns: Turn[]
-): Promise<{ runId: string; segments: SegmentTimestamp[]; words: AlignedWord[] }> {
+): Promise<{ runId: string; segments: SegmentTimestamp[]; words: AlignedWord[]; clips: ClipRef[] }> {
   const runId = randomBytes(4).toString('hex')
   const clips: string[] = []
+  const clipRefs: ClipRef[] = []
   const gaps: number[] = []
   const segments: SegmentTimestamp[] = []
   const words: AlignedWord[] = []
@@ -150,6 +157,16 @@ export async function generateConversation(
     }
 
     concatWavs(clips, audioPath(runId), gaps, TARGET_SAMPLE_RATE)
+
+    for (let idx = 0; idx < clips.length; idx++) {
+      const clipRunId = randomBytes(4).toString('hex')
+      copyFileSync(clips[idx], audioPath(clipRunId))
+      clipRefs.push({
+        index: idx,
+        run_id: clipRunId,
+        audio_url: `/api/audio/${clipRunId}`,
+      })
+    }
   } finally {
     for (const clip of clips) {
       try {
@@ -160,5 +177,5 @@ export async function generateConversation(
     }
   }
 
-  return { runId, segments, words }
+  return { runId, segments, words, clips: clipRefs }
 }

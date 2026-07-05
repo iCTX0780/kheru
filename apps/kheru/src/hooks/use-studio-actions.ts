@@ -14,13 +14,14 @@ export function useStudioActions() {
   const studioPlayMode = useStudioStore((s) => s.studioPlayMode)
   const setChapterGenerating = useStudioStore((s) => s.setChapterGenerating)
   const setChapterDone = useStudioStore((s) => s.setChapterDone)
-  const applyParagraphWordTimings = useStudioStore((s) => s.applyParagraphWordTimings)
   const setChapterError = useStudioStore((s) => s.setChapterError)
   const setPlayback = useStudioStore((s) => s.setPlayback)
   const resetPlayback = useStudioStore((s) => s.resetPlayback)
   const setParagraphGenerating = useStudioStore((s) => s.setParagraphGenerating)
   const setParagraphDone = useStudioStore((s) => s.setParagraphDone)
   const setParagraphError = useStudioStore((s) => s.setParagraphError)
+
+  const setParagraphsGenerating = useStudioStore((s) => s.setParagraphsGenerating)
 
   const handleGenerateChapter = useCallback(async () => {
     const ready = paragraphs.filter((p) => p.text.trim())
@@ -30,6 +31,7 @@ export function useStudioActions() {
     }
 
     setChapterGenerating()
+    setParagraphsGenerating(ready.map((p) => p.id))
     resetPlayback()
 
     try {
@@ -47,15 +49,24 @@ export function useStudioActions() {
         }
       })
       setChapterDone(result.audio_url, segments)
-      const wordTimingUpdates = ready
-        .map((paragraph, index) => ({
-          id: paragraph.id,
-          wordTimings: wordTimingsForTurn(result.words, index),
-        }))
-        .filter((item) => item.wordTimings.length > 0)
-      if (wordTimingUpdates.length > 0) {
-        applyParagraphWordTimings(wordTimingUpdates)
+
+      for (let index = 0; index < ready.length; index++) {
+        const paragraph = ready[index]
+        const clip = result.clips?.find((c) => c.index === index)
+        const audioUrl = clip?.audio_url ?? result.audio_url
+        const duration = await resolveClipDuration(
+          audioUrl,
+          segmentDurationFromResult(result, index)
+        )
+        const wordTimings = wordTimingsForTurn(result.words, index)
+        setParagraphDone(
+          paragraph.id,
+          audioUrl,
+          duration,
+          wordTimings.length > 0 ? wordTimings : null
+        )
       }
+
       setPlayback({
         mode: 'chapter',
         isPlaying: false,
@@ -68,10 +79,15 @@ export function useStudioActions() {
         sequenceTimeOffset: 0,
         timelineSegments: segments,
       })
-      toast.success('Chapter generated')
+      toast.success(
+        ready.length === 1 ? 'Paragraph generated' : `Generated ${ready.length} paragraphs`
+      )
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Chapter generation failed'
+      const message = err instanceof Error ? err.message : 'Generation failed'
       setChapterError(message)
+      for (const paragraph of ready) {
+        setParagraphError(paragraph.id, message)
+      }
       toast.error(message)
     }
   }, [
@@ -79,9 +95,11 @@ export function useStudioActions() {
     paragraphs,
     resetPlayback,
     setChapterDone,
-    applyParagraphWordTimings,
     setChapterError,
     setChapterGenerating,
+    setParagraphDone,
+    setParagraphError,
+    setParagraphsGenerating,
     setPlayback,
   ])
 
@@ -102,14 +120,15 @@ export function useStudioActions() {
       const result = await generate.mutateAsync([
         turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale),
       ])
+      const audioUrl = result.clips?.[0]?.audio_url ?? result.audio_url
       const duration = await resolveClipDuration(
-        result.audio_url,
+        audioUrl,
         segmentDurationFromResult(result, 0)
       )
       const wordTimings = wordTimingsForTurn(result.words, 0)
       setParagraphDone(
         paragraph.id,
-        result.audio_url,
+        audioUrl,
         duration,
         wordTimings.length > 0 ? wordTimings : null
       )

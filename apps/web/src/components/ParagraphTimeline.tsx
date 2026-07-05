@@ -8,8 +8,10 @@ import { parseImportScript } from '@/lib/parse-script'
 import { useStudioStore } from '@/stores/studio'
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react'
 
+import type { VoiceInfo } from '@/lib/api'
+
 interface ParagraphTimelineProps {
-  voices: string[]
+  voices: VoiceInfo[]
   onPlayParagraph: (id: string) => void
 }
 

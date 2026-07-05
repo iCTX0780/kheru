@@ -1,5 +1,13 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
 
+export interface VoiceInfo {
+  id: string
+  engine: 'piper' | 'kokoro'
+  display_name: string
+  gender: 'male' | 'female'
+  default_length_scale: number
+}
+
 export interface GenerateSegment {
   index: number
   start: number
@@ -34,10 +42,10 @@ async function parseError(res: Response): Promise<string> {
 }
 
 const api = {
-  voices: async (): Promise<string[]> => {
+  voices: async (): Promise<VoiceInfo[]> => {
     const res = await fetch('/api/voices')
     if (!res.ok) throw new Error(await parseError(res))
-    const data: { voices: string[] } = await res.json()
+    const data: { voices: VoiceInfo[] } = await res.json()
     return data.voices
   },
 

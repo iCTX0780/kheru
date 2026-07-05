@@ -50,7 +50,7 @@ export interface StudioStore {
   chapter: Chapter
   playback: PlaybackState
 
-  setVoices: (voices: string[]) => void
+  setVoices: (voices: string[], defaultVoice?: string) => void
   addParagraph: (afterId?: string) => void
   importParagraphs: (texts: string[]) => void
   updateParagraph: (id: string, updates: Partial<Pick<Paragraph, 'text' | 'voice' | 'lengthScale'>>) => void
@@ -121,20 +121,20 @@ export const useStudioStore = create<StudioStore>((set) => ({
   chapter: { audioUrl: null, segments: [], status: 'idle' },
   playback: initialPlayback,
 
-  setVoices: (voices) =>
+  setVoices: (voices, defaultVoice) =>
     set((state) => {
-      const defaultVoice = voices[0] || ''
+      const fallback = defaultVoice || voices[0] || ''
       const paragraphs =
         state.paragraphs.length > 0
           ? state.paragraphs
-          : defaultVoice
-            ? [createParagraph(defaultVoice)]
+          : fallback
+            ? [createParagraph(fallback)]
             : []
       return {
         voices,
         paragraphs: paragraphs.map((p) => ({
           ...p,
-          voice: p.voice || defaultVoice,
+          voice: voices.includes(p.voice) ? p.voice : fallback,
         })),
       }
     }),

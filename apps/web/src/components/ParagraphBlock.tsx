@@ -10,6 +10,7 @@ import { HighlightedText } from '@/components/HighlightedText'
 import { ChevronDown, ChevronUp, Play, Sparkles, Trash2 } from 'lucide-react'
 import { getAudioDuration } from '@/lib/audio-duration'
 import { turnFromParagraph, useGenerate } from '@/lib/api'
+import type { VoiceInfo } from '@/lib/api'
 import type { Paragraph } from '@/stores/studio'
 import { useStudioStore } from '@/stores/studio'
 import { fromDisplaySpeed, SPEED_MAX, SPEED_MIN, toDisplaySpeed } from '@/lib/speed'
@@ -19,7 +20,7 @@ import { toast } from 'sonner'
 interface ParagraphBlockProps {
   paragraph: Paragraph
   index: number
-  voices: string[]
+  voices: VoiceInfo[]
   isActive: boolean
   isPlaying: boolean
   activeWordIndex: number | null

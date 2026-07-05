@@ -11,11 +11,12 @@ import { SegmentedTimelinePlayer } from '@/components/SegmentedTimelinePlayer'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { useStudioStore } from '@/stores/studio'
 import { turnFromParagraph, useGenerate, useVoices } from '@/lib/api'
+import { DEFAULT_VOICE_ID } from '@/lib/voice-catalog'
 import { buildSegmentsFromParagraphs, playableParagraphs } from '@/lib/playback-segments'
 import { rootRoute } from './__root'
 
 function StudioPage() {
-  const { data: voices = [], isLoading: isLoadingVoices } = useVoices()
+  const { data: voiceList = [], isLoading: isLoadingVoices } = useVoices()
   const generate = useGenerate()
 
   const setVoices = useStudioStore((s) => s.setVoices)
@@ -28,8 +29,12 @@ function StudioPage() {
   const resetPlayback = useStudioStore((s) => s.resetPlayback)
 
   useEffect(() => {
-    if (voices.length > 0) setVoices(voices)
-  }, [voices, setVoices])
+    if (voiceList.length > 0) {
+      const ids = voiceList.map((v) => v.id)
+      const preferred = ids.includes(DEFAULT_VOICE_ID) ? DEFAULT_VOICE_ID : ids[0]
+      setVoices(ids, preferred)
+    }
+  }, [voiceList, setVoices])
 
   const handleGenerateChapter = useCallback(async () => {
     const ready = paragraphs.filter((p) => p.text.trim())
@@ -184,7 +189,7 @@ function StudioPage() {
 
       <main className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col p-6 overflow-hidden">
-          <ParagraphTimeline voices={voices} onPlayParagraph={handlePlayParagraph} />
+          <ParagraphTimeline voices={voiceList} onPlayParagraph={handlePlayParagraph} />
         </div>
       </main>
 

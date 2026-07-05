@@ -29,3 +29,7 @@ apps/api/.venv/
 
 # Legacy MVP artifacts (kept locally in legacy/)
 legacy/*.wav
+
+# Voice bake-off artifacts
+voice-bakeoff/
+kokoro-models/

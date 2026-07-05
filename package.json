@@ -9,6 +9,7 @@
     "dev": "make dev",
     "dev:web": "pnpm --filter web dev",
     "dev:api": "make dev-api",
+    "dev:kheru": "pnpm --filter kheru dev",
     "build": "pnpm --filter web build",
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm --filter web exec tsc -p tsconfig.app.json --noEmit"

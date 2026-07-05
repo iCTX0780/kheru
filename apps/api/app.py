@@ -36,8 +36,16 @@ class SpeakerProfile(BaseModel):
     length_scale: float = Field(ge=0.25, le=4.0)
 
 
+class VoiceInfo(BaseModel):
+    id: str
+    engine: str
+    display_name: str
+    gender: str
+    default_length_scale: float
+
+
 class VoicesResponse(BaseModel):
-    voices: list[str]
+    voices: list[VoiceInfo]
 
 
 class SpeakersResponse(BaseModel):
@@ -74,7 +82,18 @@ def _save_speakers(speakers: dict) -> None:
 
 @router.get("/voices")
 def voices() -> VoicesResponse:
-    return VoicesResponse(voices=tts.list_voices())
+    return VoicesResponse(
+        voices=[
+            VoiceInfo(
+                id=v.id,
+                engine=v.engine,
+                display_name=v.display_name,
+                gender=v.gender,
+                default_length_scale=v.default_length_scale,
+            )
+            for v in tts.list_voice_catalog()
+        ]
+    )
 
 
 @router.get("/speakers")

@@ -107,7 +107,7 @@ export async function exportParagraphsZip(paragraphs: Paragraph[]): Promise<void
   }
 
   const zipped = buildZip(files)
-  downloadBlob(new Blob([zipped], { type: 'application/zip' }), 'paragraphs.zip')
+  downloadBlob(new Blob([new Uint8Array(zipped)], { type: 'application/zip' }), 'paragraphs.zip')
 }
 
 export function exportSubtitles(

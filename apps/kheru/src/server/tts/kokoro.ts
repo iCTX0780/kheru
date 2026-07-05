@@ -35,7 +35,9 @@ export async function synthKokoro(
 ): Promise<void> {
   const tts = await getEngine()
   const clampedSpeed = Math.max(0.5, Math.min(2.0, speed))
-  const audio = await tts.generate(text, { voice: voiceKey, speed: clampedSpeed })
+  const audio = await tts.generate(text, { voice: voiceKey, speed: clampedSpeed } as NonNullable<
+    Parameters<typeof tts.generate>[1]
+  >)
 
   const tempFloat = `${outPath}.float.wav`
   try {

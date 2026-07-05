@@ -34,7 +34,7 @@ export const Route = createFileRoute('/api/export')({
 
         try {
           const result = exportConcat(runIds, format)
-          return new Response(result.buffer, {
+          return new Response(new Uint8Array(result.buffer), {
             headers: {
               'Content-Type': result.contentType,
               'Content-Disposition': `attachment; filename="${result.filename}"`,

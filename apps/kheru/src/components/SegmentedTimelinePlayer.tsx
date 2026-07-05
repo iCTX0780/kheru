@@ -119,15 +119,6 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
 
   sequenceIndexRef.current = playback.sequenceIndex
 
-  const activeParagraphId =
-    playback.mode === 'sequence'
-      ? playback.sequenceParagraphIds[playback.sequenceIndex]
-      : playback.playingParagraphId
-
-  const activeParagraph = activeParagraphId
-    ? paragraphs.find((p) => p.id === activeParagraphId)
-    : null
-
   const playingParagraph =
     playback.mode === 'paragraph' && playback.playingParagraphId
       ? paragraphs.find((p) => p.id === playback.playingParagraphId)
@@ -402,7 +393,6 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
 
       if (finished) {
         const first = playback.sequenceParagraphIds[0]
-        const firstSegment = timelineSegments[0]
         updates.sequenceIndex = 0
         updates.sequenceTimeOffset = 0
         updates.currentTime = 0

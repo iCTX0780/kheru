@@ -10,7 +10,7 @@ import numpy as np
 from voice_catalog import CURATED_VOICE_IDS, VOICE_BY_ID, Voice
 
 _API_DIR = Path(__file__).resolve().parent
-_MONOREPO_ROOT = _API_DIR.parent.parent
+_MONOREPO_ROOT = _API_DIR.parent.parent.parent
 _MONOREPO_VOICES = _MONOREPO_ROOT / "voices"
 _LOCAL_VOICES = _API_DIR / "voices"
 _KOKORO_MODELS = _MONOREPO_ROOT / "kokoro-models"

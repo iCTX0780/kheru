@@ -1,4 +1,16 @@
 services:
+  gentle:
+    image: lowerquality/gentle
+    ports:
+      - "8765:8765"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8765/"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+    restart: unless-stopped
+
   kheru:
     build:
       context: ../..
@@ -12,15 +24,11 @@ services:
       DATA_DIR: /data
       TRANSFORMERS_CACHE: /data/transformers-cache
       GENTLE_URL: http://gentle:8765
+      GENTLE_WAIT_SECS: 180
     volumes:
       - ../../voices:/voices:ro
       - ./data:/data
     depends_on:
-      - gentle
-    restart: unless-stopped
-
-  gentle:
-    image: lowerquality/gentle
-    ports:
-      - "8765:8765"
+      gentle:
+        condition: service_healthy
     restart: unless-stopped

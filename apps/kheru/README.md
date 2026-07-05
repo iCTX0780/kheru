@@ -1,6 +1,6 @@
 # Kheru
 
-Self-contained TanStack Start rehearsal studio (Kokoro + Piper TTS, no FastAPI).
+Self-contained TanStack Start rehearsal studio (Kokoro + Piper TTS).
 
 ## Dev
 
@@ -15,7 +15,7 @@ Requires `piper` on PATH for Piper fallback voices. Kokoro downloads models on f
 
 ### Word highlights (Gentle)
 
-Accurate word-by-word highlighting uses [Gentle](https://github.com/lowerquality/gentle) forced alignment. Without it, highlights are estimated from clip duration and can finish before speech ends.
+Accurate word-by-word highlighting uses [Gentle](https://github.com/lowerquality/gentle) forced alignment. Without it, highlights are estimated from clip duration.
 
 **Local dev with Gentle:**
 
@@ -24,28 +24,28 @@ docker run --rm -p 8765:8765 lowerquality/gentle
 GENTLE_URL=http://127.0.0.1:8765 make dev-kheru
 ```
 
-Docker Compose starts Gentle automatically (`GENTLE_URL=http://gentle:8765`).
-
 ## Production
 
 ```bash
 pnpm --filter kheru build
-cd apps/kheru
-TRANSFORMERS_CACHE=./data/transformers-cache PORT=3000 node .output/server/index.mjs
+make start-kheru
 ```
 
 ## Docker
 
+Compose starts **Gentle first**, waits until it is healthy, then starts Kheru (entrypoint also polls `GENTLE_URL`):
+
 ```bash
-docker compose -f apps/kheru/docker-compose.yml up --build
+make docker-up    # http://localhost:3000, Gentle on :8765
 ```
 
 Mounts repo `voices/` for Piper and persists `apps/kheru/data/` for projects and generated audio.
 
-## API (legacy-compatible)
+## API
 
 | Route | Method | Notes |
 |-------|--------|-------|
 | `/api/voices` | GET | Curated catalog |
 | `/api/generate` | POST | `{ conversation: Turn[] }` → `{ run_id, audio_url, segments, words }` |
 | `/api/audio/:runId` | GET | 8-char hex WAV |
+| `/api/export` | POST | Export chapter/paragraphs |

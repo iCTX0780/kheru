@@ -5,13 +5,13 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "apps" / "api"))
+sys.path.insert(0, str(ROOT / "legacy" / "fastapi"))
 
 import tts  # noqa: E402
 from voice_catalog import CURATED_VOICES  # noqa: E402
 
 PREVIEW_TEXT = "Hello, this is a preview of my voice."
-OUTPUT_DIR = ROOT / "apps" / "web" / "public" / "voice-samples"
+OUTPUT_DIR = ROOT / "apps" / "kheru" / "public" / "voice-samples"
 
 
 def main() -> None:

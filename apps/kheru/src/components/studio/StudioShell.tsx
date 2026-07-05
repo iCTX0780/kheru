@@ -50,7 +50,7 @@ export function StudioShell({
   onTogglePlay,
   onGenerateSelection,
   onGenerateChapter,
-  onPlayParagraph,
+  onPlayParagraph: _onPlayParagraph,
   onPlayAll,
   onPlaySelection,
   onOpenShortcuts,

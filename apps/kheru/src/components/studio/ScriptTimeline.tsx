@@ -30,7 +30,7 @@ function TimelineSkeleton() {
 
 export function ScriptTimeline({
   paragraphs,
-  voices,
+  voices: _voices,
   hydrated,
   playback,
   selectedParagraphId,

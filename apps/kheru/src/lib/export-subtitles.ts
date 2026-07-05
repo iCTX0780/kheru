@@ -49,7 +49,8 @@ export function buildWordCues(
 
   for (const segment of segments) {
     const paragraph = byId.get(segment.paragraphId)
-    const text = paragraph?.text.trim() ?? ''
+    if (!paragraph) continue
+    const text = paragraph.text.trim()
     if (!text) continue
 
     const timings =

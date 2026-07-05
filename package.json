@@ -12,7 +12,8 @@
     ]
   },
   "scripts": {
-    "dev": "make dev-kheru",
+    "dev": "make dev",
+    "start": "make start",
     "build": "pnpm --filter kheru build",
     "test": "pnpm --filter kheru test",
     "lint": "pnpm --filter kheru exec tsc --noEmit",

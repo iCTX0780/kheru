@@ -14,7 +14,7 @@ OUTPUT_DIR = APP_DIR / "generated_audio"
 SPEAKERS_FILE = APP_DIR / "speakers.json"
 FRONTEND_DIR = APP_DIR / "frontend"
 
-app = FastAPI(title="VoxLab")
+app = FastAPI(title="Kheru (legacy FastAPI)")
 router = APIRouter(prefix="/api", tags=["tts"])
 
 

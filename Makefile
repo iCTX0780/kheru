@@ -1,4 +1,4 @@
-.PHONY: dev dev-kheru start-kheru build test lint typecheck docker-up docker-down voice-samples voice-bakeoff kokoro-js-spike
+.PHONY: dev dev-kheru start start-kheru build test lint typecheck docker-up docker-down voice-samples voice-bakeoff kokoro-js-spike
 
 WITH_NODE := ./scripts/with-node.sh
 
@@ -14,11 +14,12 @@ kokoro-js-spike:
 dev-kheru:
 	$(WITH_NODE) bash -c 'cd apps/kheru && DATA_DIR="$$(pwd)/data" GENTLE_URL="$${GENTLE_URL:-}" pnpm dev'
 
+dev: dev-kheru
+
 start-kheru:
 	$(WITH_NODE) bash -c 'cd apps/kheru && TRANSFORMERS_CACHE="$${TRANSFORMERS_CACHE:-./data/transformers-cache}" PORT="$${PORT:-3000}" HOST="$${HOST:-127.0.0.1}" node .output/server/index.mjs'
 
-dev:
-	$(WITH_NODE) pnpm --filter kheru dev
+start: start-kheru
 
 build:
 	$(WITH_NODE) pnpm --filter kheru build

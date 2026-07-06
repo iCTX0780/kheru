@@ -1,4 +1,4 @@
-/** Piper length_scale is inverse of perceived speed (higher = slower). */
+/** Stored lengthScale is inverse of perceived speed (higher = slower). */
 export function toDisplaySpeed(lengthScale: number): number {
   return 1 / lengthScale
 }
@@ -7,7 +7,7 @@ export function fromDisplaySpeed(displaySpeed: number): number {
   return 1 / displaySpeed
 }
 
-/** Kokoro `speed` is direct (higher = faster); stored lengthScale uses Piper convention. */
+/** Kokoro `speed` is direct (higher = faster); UI stores inverse lengthScale. */
 export function kokoroSpeedFromLengthScale(lengthScale: number): number {
   return 1 / lengthScale
 }

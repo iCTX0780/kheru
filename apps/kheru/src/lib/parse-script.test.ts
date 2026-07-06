@@ -95,11 +95,11 @@ backend, UI/UX, CI/CD, and product.
 })
 
 describe('voiceForSpeaker', () => {
-  const voices = ['kokoro:af_heart', 'kokoro:am_michael', 'kokoro:am_adam', 'piper:en_US-joe-medium']
+  const voices = ['kokoro:af_heart', 'kokoro:am_michael', 'kokoro:am_adam', 'kokoro:am_fenrir']
 
   it('maps INTERVIEWER to Heart and YOU to Michael', () => {
-    expect(voiceForSpeaker('INTERVIEWER', 'piper:en_US-joe-medium', voices)).toBe('kokoro:af_heart')
-    expect(voiceForSpeaker('YOU', 'piper:en_US-joe-medium', voices)).toBe('kokoro:am_michael')
+    expect(voiceForSpeaker('INTERVIEWER', 'kokoro:am_fenrir', voices)).toBe('kokoro:af_heart')
+    expect(voiceForSpeaker('YOU', 'kokoro:am_fenrir', voices)).toBe('kokoro:am_michael')
   })
 
   it('maps HEADLINE to Adam', () => {

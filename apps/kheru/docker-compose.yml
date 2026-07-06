@@ -1,3 +1,5 @@
+name: kheru
+
 services:
   gentle:
     image: lowerquality/gentle
@@ -11,22 +13,21 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  kheru:
+  app:
     build:
       context: ../..
       dockerfile: apps/kheru/Dockerfile
+    image: kheru-app
     ports:
       - "3000:3000"
     environment:
       HOST: 0.0.0.0
       PORT: 3000
-      VOICES_DIR: /voices
       DATA_DIR: /data
       TRANSFORMERS_CACHE: /data/transformers-cache
       GENTLE_URL: http://gentle:8765
       GENTLE_WAIT_SECS: 180
     volumes:
-      - ../../voices:/voices:ro
       - ./data:/data
     depends_on:
       gentle:

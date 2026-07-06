@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate static preview WAV files for curated Piper + Kokoro voices."""
+"""Generate static preview WAV files for curated Kokoro voices."""
 
 import sys
 from pathlib import Path

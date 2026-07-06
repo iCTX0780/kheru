@@ -1,4 +1,4 @@
-.PHONY: dev dev-kheru start start-kheru build test lint typecheck docker-up docker-down voice-samples voice-bakeoff kokoro-js-spike
+.PHONY: dev dev-kheru start start-kheru build test lint typecheck docker-up docker-logs docker-down voice-samples voice-bakeoff kokoro-js-spike
 
 WITH_NODE := ./scripts/with-node.sh
 
@@ -33,8 +33,14 @@ lint:
 typecheck:
 	$(WITH_NODE) pnpm --filter kheru exec tsc --noEmit
 
+COMPOSE := docker compose -p kheru -f apps/kheru/docker-compose.yml
+
 docker-up:
-	docker compose -f apps/kheru/docker-compose.yml up --build
+	$(COMPOSE) up --build -d
+	$(COMPOSE) ps
+
+docker-logs:
+	$(COMPOSE) logs -f
 
 docker-down:
-	docker compose -f apps/kheru/docker-compose.yml down
+	$(COMPOSE) down

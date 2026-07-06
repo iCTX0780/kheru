@@ -1,6 +1,6 @@
 # Kheru
 
-Offline rehearsal studio for scripted dialogue. Write paragraph-by-paragraph, assign Piper or Kokoro voices, generate audio, and play back with word-level highlighting.
+Offline rehearsal studio for scripted dialogue. Write paragraph-by-paragraph, assign Kokoro voices, generate audio, and play back with word-level highlighting.
 
 One TanStack Start app — UI, TTS API, and file storage in a single Node process.
 
@@ -16,7 +16,7 @@ make dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-First Kokoro synthesis downloads the model (~30s). Piper voices need the `piper` CLI on your PATH.
+First Kokoro synthesis downloads the model (~30s).
 
 ## What it does
 
@@ -32,25 +32,14 @@ First Kokoro synthesis downloads the model (~30s). Piper voices need the `piper`
 ```
 kheru/
 ├── apps/kheru/           # TanStack Start app (studio UI + /api routes + server/tts)
-├── legacy/fastapi/       # Archived Python API — bake-off scripts only
-├── voices/               # Piper .onnx models (git-ignored)
-├── kokoro-models/        # Optional local Kokoro ONNX (bake-off)
-├── scripts/              # voice_bakeoff.py, generate_voice_samples.py
+├── legacy/               # Archived Python stack and bake-off scripts
+├── scripts/              # generate_voice_samples.py, voice_bakeoff.py
 ├── voice-bakeoff/        # Comparison WAVs + index.html (local, git-ignored)
 ├── Makefile
 └── package.json          # pnpm workspace root
 ```
 
 ## Setup
-
-### Voice models (Piper)
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install piper-tts
-python download_voices.py   # → voices/
-```
 
 ### Dev server
 
@@ -75,22 +64,23 @@ GENTLE_URL=http://127.0.0.1:8765 make dev
 **Docker Compose** — Gentle starts first, Kheru waits until it is healthy:
 
 ```bash
-make docker-up    # Gentle :8765, Kheru :3000
+make docker-up    # build, start detached, print compose ps (Gentle :8765, app :3000)
+make docker-logs  # follow logs
 make docker-down
 ```
 
-Mounts `voices/` read-only and persists generated audio in `apps/kheru/data/`.
+Containers are named `kheru-<service>-1` (e.g. `kheru-app-1`, `kheru-gentle-1`).
+
+Persists generated audio and the Kokoro model cache in `apps/kheru/data/`.
 
 ## Voice catalog
 
-Curated US voices: 6 Piper + 4 Kokoro (`kokoro:af_heart`, `piper:en_US-lessac-high`, etc.).
+Six curated US Kokoro voices (`kokoro:af_heart`, `kokoro:am_michael`, etc.).
 
-To compare candidates before changing the catalog:
+To regenerate preview clips (optional — previews are also generated on demand via `/api/voice-preview`):
 
 ```bash
-cd legacy/fastapi && pip install -r requirements.txt
-make voice-bakeoff     # → voice-bakeoff/
-make voice-samples     # → apps/kheru/public/voice-samples/
+make voice-samples     # → apps/kheru/public/voice-samples/ (legacy static export)
 ```
 
 ## API
@@ -107,8 +97,7 @@ make voice-samples     # → apps/kheru/public/voice-samples/
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `PORT` | `3000` | HTTP port |
-| `DATA_DIR` | `apps/kheru/data` | Projects, audio, cache |
-| `VOICES_DIR` | `voices/` | Piper model directory |
+| `DATA_DIR` | `apps/kheru/data` | Projects, audio, Kokoro cache |
 | `TRANSFORMERS_CACHE` | `data/transformers-cache` | Kokoro model cache |
 | `GENTLE_URL` | — | Gentle aligner base URL (e.g. `http://127.0.0.1:8765`) |
 

@@ -1,4 +1,6 @@
 import { fromDisplaySpeed } from '@/lib/speed'
+
+export type VoiceEngine = 'kokoro'
 export type VoiceGender = 'male' | 'female'
 
 export interface Voice {
@@ -59,30 +61,6 @@ export const CURATED_VOICES: Voice[] = [
     gender: 'male',
     defaultLengthScale: 1.0,
   },
-  {
-    id: 'piper:en_US-lessac-high',
-    engine: 'piper',
-    voiceKey: 'en_US-lessac-high',
-    displayName: 'Lessac',
-    gender: 'female',
-    defaultLengthScale: 1.2,
-  },
-  {
-    id: 'piper:en_US-ryan-high',
-    engine: 'piper',
-    voiceKey: 'en_US-ryan-high',
-    displayName: 'Ryan',
-    gender: 'male',
-    defaultLengthScale: 1.2,
-  },
-  {
-    id: 'piper:en_US-joe-medium',
-    engine: 'piper',
-    voiceKey: 'en_US-joe-medium',
-    displayName: 'Joe',
-    gender: 'male',
-    defaultLengthScale: 1.2,
-  },
 ]
 
 export const DEFAULT_VOICE_ID = 'kokoro:am_michael'
@@ -94,7 +72,7 @@ export const SPEAKER_VOICE_DEFAULTS: Record<string, string> = {
   HEADLINE: 'kokoro:am_adam',
 }
 
-/** Optional import speed override per speaker (Piper lengthScale; 1.25 ≈ 0.8× in the UI). */
+/** Optional import speed override per speaker (lengthScale; 1.25 ≈ 0.8× in the UI). */
 export const SPEAKER_LENGTH_SCALE_DEFAULTS: Record<string, number> = {
   HEADLINE: fromDisplaySpeed(0.8),
 }
@@ -129,13 +107,12 @@ export function voicePreviewFilename(voiceId: string): string {
 }
 
 export function voiceSampleUrl(voiceId: string): string {
-  return `/voice-samples/${voicePreviewFilename(voiceId)}`
+  return `/api/voice-preview/${voicePreviewFilename(voiceId).replace(/\.wav$/, '')}`
 }
 
 export function voiceDisplayName(voiceId: string): string {
   const voice = VOICE_BY_ID[voiceId]
-  if (voice) return `${voice.displayName} (${voice.engine})`
-  return voiceId
+  return voice?.displayName ?? voiceId
 }
 
 export function voiceInitial(voiceId: string): string {

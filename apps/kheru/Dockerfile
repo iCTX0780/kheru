@@ -19,14 +19,22 @@ FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    piper-tts \
     curl \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/kheru/package.json apps/kheru/
+
+# Hoist deps to /app/node_modules so Nitro externals resolve from /app/.output/server.
+RUN printf 'node-linker=hoisted\n' > .npmrc \
+    && pnpm install --frozen-lockfile --prod --filter kheru || pnpm install --prod --filter kheru
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
-ENV VOICES_DIR=/voices
 ENV DATA_DIR=/data
 ENV GENTLE_URL=http://gentle:8765
 ENV GENTLE_WAIT_SECS=180

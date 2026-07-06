@@ -1,5 +1,3 @@
-import os
-import subprocess
 import uuid
 import wave
 from functools import lru_cache
@@ -11,16 +9,7 @@ from voice_catalog import CURATED_VOICE_IDS, VOICE_BY_ID, Voice
 
 _API_DIR = Path(__file__).resolve().parent
 _MONOREPO_ROOT = _API_DIR.parent.parent.parent
-_MONOREPO_VOICES = _MONOREPO_ROOT / "voices"
-_LOCAL_VOICES = _API_DIR / "voices"
 _KOKORO_MODELS = _MONOREPO_ROOT / "kokoro-models"
-
-if os.environ.get("VOICES_DIR"):
-    VOICES_DIR = Path(os.environ["VOICES_DIR"])
-elif _MONOREPO_VOICES.is_dir():
-    VOICES_DIR = _MONOREPO_VOICES
-else:
-    VOICES_DIR = _LOCAL_VOICES
 
 OUTPUT_DIR = Path(__file__).parent / "generated_audio"
 TEMP_DIR = Path(__file__).parent / "temp"
@@ -32,7 +21,7 @@ TEMP_DIR.mkdir(exist_ok=True)
 
 
 def list_voices() -> list[str]:
-    """Return curated voice ids (piper:* and kokoro:*)."""
+    """Return curated Kokoro voice ids."""
     return list(CURATED_VOICE_IDS)
 
 
@@ -76,24 +65,6 @@ def _kokoro_engine():
     return Kokoro(str(model_path), str(voices_path))
 
 
-def _synth_piper(text: str, voice_key: str, out_path: Path, length_scale: float) -> None:
-    model = VOICES_DIR / f"{voice_key}.onnx"
-    if not model.exists():
-        raise ValueError(f"Piper model not found: {voice_key}")
-    cmd = [
-        "piper",
-        "--model",
-        str(model),
-        "--output_file",
-        str(out_path),
-        "--length_scale",
-        str(length_scale),
-    ]
-    proc = subprocess.run(cmd, input=text, text=True, capture_output=True)
-    if proc.returncode != 0:
-        raise RuntimeError(f"Piper failed for '{text[:40]}...': {proc.stderr}")
-
-
 def _synth_kokoro(text: str, voice_key: str, out_path: Path, speed: float) -> None:
     kokoro = _kokoro_engine()
     samples, sample_rate = kokoro.create(
@@ -114,11 +85,8 @@ def _synth_line(
 ) -> None:
     """Generate a single WAV clip for one line."""
     voice = _validate_voice(voice_id)
-    if voice.engine == "piper":
-        _synth_piper(text, voice.voice_key, out_path, length_scale)
-    else:
-        # UI stores Piper-style length_scale (higher = slower). Kokoro speed is direct (higher = faster).
-        _synth_kokoro(text, voice.voice_key, out_path, speed=1.0 / length_scale)
+    # Stored length_scale is inverse of perceived speed (higher = slower).
+    _synth_kokoro(text, voice.voice_key, out_path, speed=1.0 / length_scale)
 
 
 def _concat(clips: list[Path], output_file: Path, gaps: list[float]) -> None:

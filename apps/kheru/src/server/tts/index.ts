@@ -3,7 +3,6 @@ import { copyFileSync, unlinkSync } from 'node:fs'
 import { kokoroSpeedFromLengthScale } from '@/lib/speed'
 import { validateVoice } from '@/server/voices/catalog'
 import { synthKokoro } from './kokoro'
-import { synthPiper } from './piper'
 import { concatWavs } from './concat'
 import { countWords, splitTextForTts, shouldRetryChunkedSynth } from './chunk-text'
 import {
@@ -42,10 +41,6 @@ async function synthChunk(
   outPath: string,
   lengthScale: number
 ): Promise<void> {
-  if (voice.engine === 'piper') {
-    await synthPiper(text, voice.voiceKey, outPath, lengthScale)
-    return
-  }
   const kokoroSpeed = kokoroSpeedFromLengthScale(lengthScale)
   await synthKokoro(text, voice.voiceKey, outPath, kokoroSpeed)
 }
@@ -87,17 +82,14 @@ async function synthLine(
   const voice = validateVoice(voiceId)
   const chunks = splitTextForTts(text)
 
-  if (voice.engine === 'kokoro' && chunks.length > 1) {
+  if (chunks.length > 1) {
     await synthChunkedLine(chunks, voice, outPath, lengthScale)
     return
   }
 
   await synthChunk(text, voice, outPath, lengthScale)
 
-  if (
-    chunks.length > 1 &&
-    shouldRetryChunkedSynth(text, clipDurationSeconds(outPath), lengthScale)
-  ) {
+  if (shouldRetryChunkedSynth(text, clipDurationSeconds(outPath), lengthScale)) {
     console.warn(
       `TTS output shorter than expected for ${countWords(text)} words — retrying in ${chunks.length} chunks`
     )

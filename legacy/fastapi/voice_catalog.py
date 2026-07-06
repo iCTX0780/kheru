@@ -1,11 +1,11 @@
-"""Curated en_US voice catalog (Kokoro primary + Piper fallback)."""
+"""Curated en_US Kokoro voice catalog."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
 
-Engine = Literal["piper", "kokoro"]
+Engine = Literal["kokoro"]
 Gender = Literal["male", "female"]
 
 
@@ -24,7 +24,6 @@ class Voice:
 
 
 CURATED_VOICES: list[Voice] = [
-    # Kokoro — primary (bake-off winner)
     Voice(
         id="kokoro:af_heart",
         engine="kokoro",
@@ -72,31 +71,6 @@ CURATED_VOICES: list[Voice] = [
         display_name="Adam",
         gender="male",
         default_length_scale=1.0,
-    ),
-    # Piper — fallback
-    Voice(
-        id="piper:en_US-lessac-high",
-        engine="piper",
-        voice_key="en_US-lessac-high",
-        display_name="Lessac",
-        gender="female",
-        default_length_scale=1.2,
-    ),
-    Voice(
-        id="piper:en_US-ryan-high",
-        engine="piper",
-        voice_key="en_US-ryan-high",
-        display_name="Ryan",
-        gender="male",
-        default_length_scale=1.2,
-    ),
-    Voice(
-        id="piper:en_US-joe-medium",
-        engine="piper",
-        voice_key="en_US-joe-medium",
-        display_name="Joe",
-        gender="male",
-        default_length_scale=1.2,
     ),
 ]
 

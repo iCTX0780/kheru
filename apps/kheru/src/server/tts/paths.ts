@@ -23,14 +23,9 @@ function resolveKheruRoot(): string {
 }
 
 const KHERU_ROOT = resolveKheruRoot()
-const MONOREPO_ROOT = resolve(KHERU_ROOT, '../..')
 
 export const TARGET_SAMPLE_RATE = 22_050
 export const DEFAULT_GAP_SECONDS = 0.4
-
-export const VOICES_DIR = process.env.VOICES_DIR
-  ? resolve(process.env.VOICES_DIR)
-  : resolve(MONOREPO_ROOT, 'voices')
 
 export const DATA_DIR = process.env.DATA_DIR ? resolve(process.env.DATA_DIR) : resolve(KHERU_ROOT, 'data')
 

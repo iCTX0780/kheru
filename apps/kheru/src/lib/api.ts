@@ -2,7 +2,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 
 export interface VoiceInfo {
   id: string
-  engine: 'piper' | 'kokoro'
+  engine: 'kokoro'
   display_name: string
   gender: 'male' | 'female'
   default_length_scale: number

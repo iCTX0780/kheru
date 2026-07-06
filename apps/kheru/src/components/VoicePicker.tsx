@@ -1,16 +1,14 @@
 import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { Volume2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { VoiceInfo } from '@/lib/api'
 import { voiceSampleUrl } from '@/lib/voice-catalog'
 
@@ -23,29 +21,35 @@ interface VoicePickerProps {
   disabled?: boolean
 }
 
-function VoiceOption({ voice }: { voice: VoiceInfo }) {
-  return (
-    <span className="flex items-center gap-2">
-      <span>{voice.display_name}</span>
-      <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">
-        {voice.engine}
-      </Badge>
-    </span>
-  )
-}
-
 export function VoicePicker({ voices, value, onValueChange, disabled }: VoicePickerProps) {
   const playingRef = useRef<string | null>(null)
-  const piperVoices = voices.filter((v) => v.engine === 'piper')
-  const kokoroVoices = voices.filter((v) => v.engine === 'kokoro')
   const selected = voices.find((v) => v.id === value)
 
   const playPreview = (voiceId: string) => {
     if (!previewAudio) return
     previewAudio.pause()
-    previewAudio.src = voiceSampleUrl(voiceId)
     playingRef.current = voiceId
-    void previewAudio.play()
+
+    const onReady = () => {
+      previewAudio.removeEventListener('canplaythrough', onReady)
+      previewAudio.removeEventListener('error', onError)
+      if (playingRef.current !== voiceId) return
+      void previewAudio.play().catch(() => {
+        toast.error('Voice preview failed — try again in a moment')
+      })
+    }
+
+    const onError = () => {
+      previewAudio.removeEventListener('canplaythrough', onReady)
+      previewAudio.removeEventListener('error', onError)
+      if (playingRef.current !== voiceId) return
+      toast.error('Voice preview failed — first preview may take up to a minute')
+    }
+
+    previewAudio.addEventListener('canplaythrough', onReady, { once: true })
+    previewAudio.addEventListener('error', onError, { once: true })
+    previewAudio.src = voiceSampleUrl(voiceId)
+    previewAudio.load()
   }
 
   return (
@@ -53,30 +57,15 @@ export function VoicePicker({ voices, value, onValueChange, disabled }: VoicePic
       <Select value={value} onValueChange={(v) => v && onValueChange(v)} disabled={disabled}>
         <SelectTrigger className="h-8 flex-1 min-w-0 text-sm">
           <SelectValue placeholder="Voice">
-            {selected ? `${selected.display_name} (${selected.engine})` : null}
+            {selected ? selected.display_name : null}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {kokoroVoices.length > 0 && (
-            <SelectGroup>
-              <SelectLabel>Kokoro</SelectLabel>
-              {kokoroVoices.map((voice) => (
-                <SelectItem key={voice.id} value={voice.id}>
-                  <VoiceOption voice={voice} />
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          )}
-          {piperVoices.length > 0 && (
-            <SelectGroup>
-              <SelectLabel>Piper (fallback)</SelectLabel>
-              {piperVoices.map((voice) => (
-                <SelectItem key={voice.id} value={voice.id}>
-                  <VoiceOption voice={voice} />
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          )}
+          {voices.map((voice) => (
+            <SelectItem key={voice.id} value={voice.id}>
+              {voice.display_name}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       <Button

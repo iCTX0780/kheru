@@ -72,3 +72,15 @@ When the Origin Private File System is available, paragraph and chapter WAV blob
 
 - `/kokoro-spike` — manual WebGPU/WASM benchmark
 - `pnpm test` — unit tests for chunking, WAV concat, Gentle bytes align, and export helpers
+
+## TTS text normalization
+
+Before synthesis, script text passes through `prepareTextForTts()`:
+
+- **Glossary** — e.g. `a11y` → accessibility, `DOM` → dome, `DI` → D I, `CI/CD` → C I C D
+- **Author overrides** — `DOM [as: document object model]` in the script
+- **Chunking** — version strings like `v1.x` and decimals are not treated as sentence ends
+
+Gentle alignment uses the **spoken** transcript so timings match audio. Karaoke may show expanded words (e.g. “accessibility”) where the script says `a11y`.
+
+Edit `src/lib/tts-prepare-text.ts` to extend the built-in glossary.

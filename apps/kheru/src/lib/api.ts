@@ -107,6 +107,20 @@ export function useGenerate() {
   })
 }
 
+export function useProjects() {
+  return useQuery({
+    queryKey: ['projects'],
+    queryFn: async () => {
+      const res = await fetch('/api/projects')
+      if (!res.ok) throw new Error(await parseError(res))
+      return res.json() as Promise<
+        { id: string; title: string; chapters: unknown[]; activeChapterId: string; updatedAt: string }[]
+      >
+    },
+    staleTime: 30_000,
+  })
+}
+
 export function turnFromParagraph(
   id: string,
   text: string,

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { STREAM_PLAYBACK_THRESHOLD_SECONDS } from '@/lib/playable-audio-url'
 
 export interface WaveformData {
   samples: number[]
@@ -6,9 +7,15 @@ export interface WaveformData {
   maxAmplitude: number
 }
 
+function runIdFromAudioUrl(audioUrl: string): string | null {
+  const match = /\/api\/audio\/([0-9a-f]{8})/.exec(audioUrl)
+  return match?.[1] ?? null
+}
+
 export function useWaveform(
   audioUrl: string | null,
-  onDataReady: (data: WaveformData) => void
+  onDataReady: (data: WaveformData) => void,
+  options?: { preferPeaks?: boolean; estimatedDuration?: number }
 ) {
   const audioContextRef = useRef<AudioContext | null>(null)
   const onDataReadyRef = useRef(onDataReady)
@@ -20,11 +27,28 @@ export function useWaveform(
   useEffect(() => {
     if (!audioUrl) return
 
+    const controller = new AbortController()
     let cancelled = false
+    const preferPeaks =
+      options?.preferPeaks ||
+      (options?.estimatedDuration ?? 0) > STREAM_PLAYBACK_THRESHOLD_SECONDS
+
+    const loadPeaks = async (runId: string) => {
+      const response = await fetch(`/api/audio/${runId}/peaks`, { signal: controller.signal })
+      if (!response.ok) throw new Error(`Peaks fetch failed (${response.status})`)
+      const data = (await response.json()) as WaveformData
+      if (!cancelled) onDataReadyRef.current(data)
+    }
 
     const fetchAndDecodeAudio = async () => {
       try {
-        const response = await fetch(audioUrl)
+        const runId = runIdFromAudioUrl(audioUrl)
+        if (preferPeaks && runId) {
+          await loadPeaks(runId)
+          return
+        }
+
+        const response = await fetch(audioUrl, { signal: controller.signal })
         const arrayBuffer = await response.arrayBuffer()
 
         if (!audioContextRef.current) {
@@ -56,20 +80,31 @@ export function useWaveform(
         const maxAmplitude = Math.max(...samples, 0.0001)
         onDataReadyRef.current({ samples, duration, maxAmplitude })
       } catch (error) {
+        if (controller.signal.aborted || cancelled) return
+        const runId = runIdFromAudioUrl(audioUrl)
+        if (preferPeaks && runId && !cancelled) {
+          try {
+            await loadPeaks(runId)
+          } catch {
+            console.error('Failed to load waveform peaks:', error)
+          }
+          return
+        }
         console.error('Failed to decode audio:', error)
       }
     }
 
-    fetchAndDecodeAudio()
+    void fetchAndDecodeAudio()
 
     return () => {
       cancelled = true
+      controller.abort()
     }
-  }, [audioUrl])
+  }, [audioUrl, options?.estimatedDuration, options?.preferPeaks])
 
   useEffect(() => {
     return () => {
-      audioContextRef.current?.close()
+      void audioContextRef.current?.close()
       audioContextRef.current = null
     }
   }, [])

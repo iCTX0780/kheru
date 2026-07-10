@@ -9,6 +9,7 @@ describe('segmentDurationFromResult', () => {
         audio_url: '/api/audio/abc',
         segments: [{ index: 0, start: 0, end: 29.5 }],
         words: [],
+        clips: [],
       },
       0
     )
@@ -23,6 +24,7 @@ describe('segmentDurationFromResult', () => {
           audio_url: '/api/audio/abc',
           segments: [],
           words: [],
+          clips: [],
         },
         0
       )

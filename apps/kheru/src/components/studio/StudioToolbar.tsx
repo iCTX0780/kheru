@@ -1,4 +1,13 @@
 import { Button } from '@/components/ui/button'
+import { Link } from '@tanstack/react-router'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -60,6 +69,9 @@ export function StudioToolbar({
 }: StudioToolbarProps) {
   const projectTitle = useStudioStore((s) => s.projectTitle)
   const setProjectTitle = useStudioStore((s) => s.setProjectTitle)
+  const generationLocked = useStudioStore(
+    (s) => s.generationSession.active || s.chapter.status === 'generating'
+  )
   const studioPlayMode = useStudioStore((s) => s.studioPlayMode)
   const setStudioPlayMode = useStudioStore((s) => s.setStudioPlayMode)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
@@ -81,15 +93,25 @@ export function StudioToolbar({
             <PanelLeft />
           </Button>
           <div className="min-w-0 flex-1">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink render={<Link to="/" />}>Projects</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Studio</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
             <Input
               type="text"
               value={projectTitle}
               onChange={(e) => setProjectTitle(e.target.value)}
-              className="h-auto border-0 bg-transparent px-0 font-heading text-lg font-semibold tracking-tight shadow-none focus-visible:ring-0"
+              className="mt-1 h-auto border-0 bg-transparent px-0 font-heading text-lg font-semibold tracking-tight shadow-none focus-visible:ring-0"
               placeholder="Untitled project"
               aria-label="Project title"
             />
-            <p className="text-[0.65rem] text-muted-foreground">Rehearsal studio</p>
           </div>
         </div>
 
@@ -118,7 +140,7 @@ export function StudioToolbar({
             type="button"
             variant="secondary"
             size="sm"
-            disabled={disabled || !canPlay}
+            disabled={disabled || generationLocked || !canPlay}
             onClick={onTogglePlay}
           >
             {isPlaying ? <Pause data-icon="inline-start" /> : <Play data-icon="inline-start" />}
@@ -131,7 +153,7 @@ export function StudioToolbar({
             type="button"
             variant="outline"
             size="sm"
-            disabled={disabled || !selectedParagraphId}
+            disabled={disabled || generationLocked || !selectedParagraphId}
             onClick={() => void onGenerateSelection()}
           >
             <Sparkles data-icon="inline-start" />

@@ -10,6 +10,8 @@ interface UsePlaybackSyncOptions {
   mode: PlaybackMode
 }
 
+const SYNC_MIN_INTERVAL_MS = 1000 / 30
+
 function resolveActiveWordIndex(
   text: string,
   localTime: number,
@@ -26,7 +28,14 @@ export function usePlaybackSync({ audioRef, isPlaying, mode }: UsePlaybackSyncOp
     if (!isPlaying || !audioRef.current || !mode) return
 
     let raf = 0
-    const tick = () => {
+    let lastEmit = 0
+    const lastStateRef = {
+      currentTime: -1,
+      activeParagraphId: null as string | null,
+      activeWordIndex: null as number | null,
+    }
+
+    const tick = (now: number) => {
       const audio = audioRef.current
       if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) {
         raf = requestAnimationFrame(tick)
@@ -70,8 +79,10 @@ export function usePlaybackSync({ audioRef, isPlaying, mode }: UsePlaybackSyncOp
             const localTime =
               mode === 'sequence' ? audio.currentTime : currentTime - segment.start
             const timingDuration =
-              mode === 'sequence' && paragraph.duration && paragraph.duration > 0
-                ? paragraph.duration
+              Number.isFinite(audio.duration) && audio.duration > 0
+                ? mode === 'sequence'
+                  ? audio.duration
+                  : speechDuration
                 : speechDuration
 
             activeWordIndex = resolveActiveWordIndex(
@@ -84,7 +95,24 @@ export function usePlaybackSync({ audioRef, isPlaying, mode }: UsePlaybackSyncOp
         }
       }
 
-      setPlayback({ currentTime, activeParagraphId, activeWordIndex })
+      const shouldEmit =
+        now - lastEmit >= SYNC_MIN_INTERVAL_MS ||
+        activeParagraphId !== lastStateRef.activeParagraphId ||
+        activeWordIndex !== lastStateRef.activeWordIndex
+
+      if (
+        shouldEmit &&
+        (Math.abs(currentTime - lastStateRef.currentTime) > 0.02 ||
+          activeParagraphId !== lastStateRef.activeParagraphId ||
+          activeWordIndex !== lastStateRef.activeWordIndex)
+      ) {
+        lastEmit = now
+        lastStateRef.currentTime = currentTime
+        lastStateRef.activeParagraphId = activeParagraphId
+        lastStateRef.activeWordIndex = activeWordIndex
+        setPlayback({ currentTime, activeParagraphId, activeWordIndex })
+      }
+
       raf = requestAnimationFrame(tick)
     }
 

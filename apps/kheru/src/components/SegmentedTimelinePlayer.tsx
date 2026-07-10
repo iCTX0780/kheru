@@ -17,7 +17,9 @@ import { useStudioStore } from '@/stores/studio'
 import { playableParagraphs, findSegmentRegionForTime, buildSegmentsFromParagraphs } from '@/lib/playback-segments'
 import { scrollToParagraph } from '@/lib/scroll-to-paragraph'
 import { voiceSegmentClass } from '@/lib/voice-colors'
-import { revokePlayableAudioUrl, toPlayableAudioUrl } from '@/lib/playable-audio-url'
+import { revokePlayableAudioUrl, shouldStreamPlayback, toPlayableAudioUrl } from '@/lib/playable-audio-url'
+import { isClipAtEnd, sequenceClipKey } from '@/lib/playback-clip'
+import { audioExists } from '@/lib/validate-audio'
 import { cn } from '@/lib/utils'
 
 const WaveformCanvas = lazy(() =>
@@ -49,17 +51,6 @@ function resolveAudioUrl(
     return paragraphs.find((p) => p.id === id)?.audioUrl ?? null
   }
   return null
-}
-
-function clipDuration(audio: HTMLAudioElement, fallback = 0): number {
-  if (Number.isFinite(audio.duration) && audio.duration > 0) return audio.duration
-  return fallback > 0 ? fallback : 0
-}
-
-function isClipAtEnd(audio: HTMLAudioElement, fallbackDuration = 0): boolean {
-  if (audio.ended) return true
-  const dur = clipDuration(audio, fallbackDuration)
-  return dur > 0 && audio.currentTime >= dur - 0.1
 }
 
 export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void }) {
@@ -100,15 +91,6 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
     return builtSegments
   }, [builtSegments, chapter.segments, playback.timelineSegments])
 
-  const clipKey =
-    playback.mode === 'sequence'
-      ? `seq:${playback.sequenceIndex}:${playback.sequenceParagraphIds[playback.sequenceIndex] ?? ''}`
-      : playback.mode === 'paragraph'
-        ? `p:${playback.playingParagraphId ?? ''}`
-        : playback.mode === 'chapter'
-          ? `ch:${chapter.audioUrl ?? ''}`
-          : null
-
   const audioUrl = resolveAudioUrl(
     playback.mode,
     playback.playingParagraphId,
@@ -117,6 +99,19 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
     paragraphs,
     chapter.audioUrl
   )
+
+  const clipKey =
+    playback.mode === 'sequence'
+      ? sequenceClipKey(
+          playback.sequenceIndex,
+          playback.sequenceParagraphIds[playback.sequenceIndex] ?? '',
+          audioUrl ?? ''
+        )
+      : playback.mode === 'paragraph'
+        ? `p:${playback.playingParagraphId ?? ''}:${audioUrl ?? ''}`
+        : playback.mode === 'chapter'
+          ? `ch:${chapter.audioUrl ?? ''}`
+          : null
 
   sequenceIndexRef.current = playback.sequenceIndex
 
@@ -143,9 +138,11 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
 
   const waveformAudioUrl = useMemo(() => {
     if (playback.mode === 'chapter' && chapter.audioUrl) return chapter.audioUrl
-    if ((playback.mode === 'sequence' || showSegments) && chapter.audioUrl) return chapter.audioUrl
     return audioUrl
-  }, [audioUrl, chapter.audioUrl, playback.mode, showSegments])
+  }, [audioUrl, chapter.audioUrl, playback.mode])
+
+  const waveformPreferPeaks =
+    playback.mode === 'chapter' || totalDuration > 120
 
   usePlaybackSync({ audioRef, isPlaying: playback.isPlaying, mode: playback.mode })
 
@@ -195,6 +192,13 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
   const advanceSequenceRef = useRef(advanceSequence)
   advanceSequenceRef.current = advanceSequence
 
+  useEffect(() => {
+    return () => {
+      revokePlayableAudioUrl(objectUrlRef.current)
+      objectUrlRef.current = null
+    }
+  }, [])
+
   // Load clip when clipKey changes; auto-play when isPlaying.
   useEffect(() => {
     const audio = audioRef.current
@@ -207,15 +211,17 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
 
     const generation = ++loadGenerationRef.current
     const loadUrl = audioUrl
-    loadedClipKeyRef.current = clipKey
     clipLoadingRef.current = true
     setDuration(0)
 
     let cancelled = false
+    let retried = false
+    const fetchAbort = new AbortController()
 
     const onLoaded = () => {
       if (cancelled || loadGenerationRef.current !== generation) return
       clipLoadingRef.current = false
+      loadedClipKeyRef.current = clipKey
       const { isPlaying, mode, currentTime, sequenceTimeOffset } = useStudioStore.getState().playback
       if (mode === 'paragraph' || mode === 'chapter') {
         setDuration(audio.duration)
@@ -230,28 +236,72 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
       }
     }
 
-    const onError = () => {
+    const onPlaybackFailure = async () => {
       if (loadGenerationRef.current !== generation) return
       clipLoadingRef.current = false
       loadedClipKeyRef.current = null
-      const { playback: pb } = useStudioStore.getState()
 
-      if (pb.mode === 'chapter') {
-        invalidateChapterAudio()
-      } else if (pb.mode === 'paragraph' && pb.playingParagraphId) {
-        invalidateParagraphAudio(pb.playingParagraphId)
-      } else if (pb.mode === 'sequence') {
-        const id = pb.sequenceParagraphIds[pb.sequenceIndex]
-        if (id) invalidateParagraphAudio(id)
+      if (!retried && !cancelled) {
+        retried = true
+        toast.message('Playback interrupted — retrying…')
+        window.setTimeout(() => {
+          if (!cancelled && loadGenerationRef.current === generation) {
+            void loadClip()
+          }
+        }, 400)
+        return
+      }
+
+      const exists = await audioExists(loadUrl)
+      if (!exists) {
+        const { playback: pb } = useStudioStore.getState()
+        if (pb.mode === 'chapter') {
+          invalidateChapterAudio()
+        } else if (pb.mode === 'paragraph' && pb.playingParagraphId) {
+          invalidateParagraphAudio(pb.playingParagraphId)
+        } else if (pb.mode === 'sequence') {
+          const id = pb.sequenceParagraphIds[pb.sequenceIndex]
+          if (id) invalidateParagraphAudio(id)
+        }
+        toast.error('Audio file not found — re-generate to restore playback')
+      } else {
+        toast.error('Playback failed — try again')
       }
 
       setPlayback({ isPlaying: false })
-      toast.error('Audio file not found — re-generate to restore playback')
     }
 
-    void (async () => {
+    const onError = () => {
+      void onPlaybackFailure()
+    }
+
+    const streamPlayback = shouldStreamPlayback(
+      playback.mode,
+      playingParagraph?.duration ?? (playback.mode === 'chapter' ? totalDuration : null)
+    )
+
+    const loadClip = async () => {
       try {
-        const objectUrl = await toPlayableAudioUrl(loadUrl)
+        audio.removeEventListener('loadedmetadata', onLoaded)
+        audio.removeEventListener('error', onError)
+
+        if (streamPlayback) {
+          if (objectUrlRef.current) {
+            revokePlayableAudioUrl(objectUrlRef.current)
+            objectUrlRef.current = null
+          }
+          audio.addEventListener('loadedmetadata', onLoaded, { once: true })
+          audio.addEventListener('error', onError, { once: true })
+          audio.pause()
+          audio.removeAttribute('src')
+          audio.load()
+          audio.currentTime = 0
+          audio.src = loadUrl
+          audio.load()
+          return
+        }
+
+        const objectUrl = await toPlayableAudioUrl(loadUrl, { signal: fetchAbort.signal })
         if (cancelled || loadGenerationRef.current !== generation) {
           revokePlayableAudioUrl(objectUrl)
           return
@@ -263,22 +313,34 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
         audio.addEventListener('loadedmetadata', onLoaded, { once: true })
         audio.addEventListener('error', onError, { once: true })
         audio.pause()
+        audio.currentTime = 0
         audio.src = objectUrl
         audio.load()
-      } catch {
-        if (!cancelled && loadGenerationRef.current === generation) {
-          onError()
+      } catch (err) {
+        if (
+          cancelled ||
+          loadGenerationRef.current !== generation ||
+          (err instanceof DOMException && err.name === 'AbortError')
+        ) {
+          return
         }
+        await onPlaybackFailure()
       }
-    })()
+    }
+
+    void loadClip()
 
     return () => {
       cancelled = true
+      fetchAbort.abort()
       clipLoadingRef.current = false
       audio.removeEventListener('loadedmetadata', onLoaded)
       audio.removeEventListener('error', onError)
+      audio.pause()
+      audio.removeAttribute('src')
+      audio.load()
     }
-  }, [clipKey, audioUrl, invalidateChapterAudio, invalidateParagraphAudio, setPlayback])
+  }, [clipKey, audioUrl, invalidateChapterAudio, invalidateParagraphAudio, playback.mode, playingParagraph?.duration, setPlayback, totalDuration])
 
   // Play/pause already-loaded clip when isPlaying toggles.
   useEffect(() => {
@@ -315,6 +377,10 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
       if (!el || !pb.isPlaying || pb.mode !== 'sequence') return
       if (pb.sequenceIndex !== watchingIndex) return
       if (loadedClipKeyRef.current !== clipKey) return
+      if (clipLoadingRef.current || el.readyState < HTMLMediaElement.HAVE_METADATA) {
+        raf = requestAnimationFrame(tick)
+        return
+      }
 
       const paragraph = state.paragraphs.find(
         (p) => p.id === pb.sequenceParagraphIds[watchingIndex]
@@ -428,8 +494,10 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
         const index = pb.sequenceParagraphIds.indexOf(region.segment.paragraphId)
         if (index === -1) return
 
-        const targetUrl = paras.find((p) => p.id === region.segment.paragraphId)?.audioUrl
-        const sameClip = index === pb.sequenceIndex && targetUrl && loadedClipKeyRef.current === `seq:${index}:${region.segment.paragraphId}`
+        const targetUrl = paras.find((p) => p.id === region.segment.paragraphId)?.audioUrl ?? ''
+        const sameClip =
+          index === pb.sequenceIndex &&
+          loadedClipKeyRef.current === sequenceClipKey(index, region.segment.paragraphId, targetUrl)
 
         if (!sameClip) {
           loadedClipKeyRef.current = null
@@ -600,6 +668,8 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
               duration={totalDuration}
               onSeek={seek}
               disabled={!canScrub}
+              preferPeaks={waveformPreferPeaks}
+              estimatedDuration={totalDuration}
             />
           </Suspense>
 
@@ -674,7 +744,9 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
         </span>
       </div>
 
-      {chapter.status === 'stale' && (playback.mode === 'chapter' || playback.mode === 'sequence') && (
+      {chapter.status === 'stale' &&
+        !chapter.audioUrl &&
+        (playback.mode === 'chapter' || playback.mode === 'sequence') && (
         <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
           Audio may be out of date — re-generate chapter for the latest full mix.
         </p>

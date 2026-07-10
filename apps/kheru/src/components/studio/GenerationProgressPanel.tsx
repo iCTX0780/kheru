@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, ChevronUp, Circle, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { voiceDisplayName } from '@/lib/voice-catalog'
+import { estimateRemainingMs, formatEta } from '@/lib/generation-estimate'
 import { voiceDotClass } from '@/lib/voice-colors'
 import { cn } from '@/lib/utils'
 import { useStudioStore } from '@/stores/studio'
@@ -113,14 +114,34 @@ export function GenerationProgressPanel() {
 
   const [expanded, setExpanded] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
+  const [tick, setTick] = useState(0)
 
   const total = generationSession.paragraphIds.length
   const completed = generationSession.completedIds.length
+  const hasError = Boolean(generationSession.failedId && generationSession.error)
   const isStitching =
     generationSession.active &&
     total > 0 &&
     completed === total &&
     chapter.status === 'generating'
+
+  const remainingMs = estimateRemainingMs({
+    startedAt: generationSession.startedAt,
+    completed,
+    total,
+    estimatedTotalMs: generationSession.estimatedTotalMs,
+    isStitching,
+  })
+  const etaLabel = formatEta(remainingMs / 1000)
+  const isLargeBatch = total >= 5
+  const showChillCopy = total >= 10 && generationSession.active && !hasError
+  void tick
+
+  useEffect(() => {
+    if (!generationSession.active) return
+    const timer = window.setInterval(() => setTick((value) => value + 1), 10_000)
+    return () => window.clearInterval(timer)
+  }, [generationSession.active])
 
   const percent = total === 0 ? 0 : isStitching ? 100 : (completed / total) * 100
 
@@ -166,7 +187,20 @@ export function GenerationProgressPanel() {
 
   if (!visible) return null
 
-  const hasError = Boolean(generationSession.failedId && generationSession.error)
+  const progressSubtitle = (() => {
+    if (hasError) return generationSession.error
+    if (isStitching) return 'Almost done — stitching chapter mix'
+    if (showChillCopy) {
+      return `Sit back and relax — we're working through ${total} paragraphs.`
+    }
+    if (completed < 2 && generationSession.active) {
+      return 'Warming up — time estimate in a moment.'
+    }
+    if (generationSession.active && total >= 5) {
+      return `${completed} / ${total} · ${etaLabel} remaining`
+    }
+    return `${completed} / ${total} segments · ${currentPreview}${currentPreview.length >= 64 ? '…' : ''}`
+  })()
 
   return (
     <div
@@ -190,15 +224,11 @@ export function GenerationProgressPanel() {
                   ? 'Stitching chapter'
                   : showComplete
                     ? 'Generation complete'
-                    : 'Generating voices'}
+                    : isLargeBatch && generationSession.active
+                      ? 'Generating voices — this takes a while'
+                      : 'Generating voices'}
             </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {hasError
-                ? generationSession.error
-                : isStitching
-                  ? 'Combining segments into full chapter mix'
-                  : `${completed} / ${total} segments · ${currentPreview}${currentPreview.length >= 64 ? '…' : ''}`}
-            </p>
+            <p className="truncate text-xs text-muted-foreground">{progressSubtitle}</p>
           </div>
 
           <div className="flex shrink-0 items-center gap-1">

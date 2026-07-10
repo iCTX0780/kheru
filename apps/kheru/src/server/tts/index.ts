@@ -12,7 +12,7 @@ import {
   tempClipPath,
 } from './paths'
 import { clipDurationSeconds } from './wav'
-import { alignWithGentle, gentleUrl } from '@/server/alignment/gentle'
+import { alignWithGentle, gentleUrl, isGentleReachable } from '@/server/alignment/gentle'
 
 export interface Turn {
   speaker: string
@@ -113,6 +113,8 @@ export async function generateConversation(
   const segments: SegmentTimestamp[] = []
   const words: AlignedWord[] = []
   const alignmentUrl = gentleUrl()
+  const alignmentEnabled =
+    alignmentUrl != null ? await isGentleReachable(alignmentUrl) : false
   let offset = 0
 
   try {
@@ -126,7 +128,7 @@ export async function generateConversation(
       const duration = clipDurationSeconds(clipPath)
       segments.push({ index: idx, start: offset, end: offset + duration })
 
-      if (alignmentUrl) {
+      if (alignmentEnabled && alignmentUrl) {
         try {
           const clipWords = await alignWithGentle(clipPath, turn.text, alignmentUrl)
           for (const timing of clipWords) {

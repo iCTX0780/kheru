@@ -32,7 +32,7 @@ export const Route = createFileRoute('/api/voice-preview/$slug')({
             ? voicePreviewPath(voiceId)
             : await getOrCreateVoicePreview(voiceId)
           const buf = readVoicePreviewWav(path)
-          return new Response(buf, {
+          return new Response(new Uint8Array(buf), {
             headers: {
               'Content-Type': 'audio/wav',
               'Content-Length': String(buf.length),

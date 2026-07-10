@@ -98,6 +98,8 @@ function tokensMatch(candidate: string, target: string): boolean {
   const targetParts = tokenParts(target)
   if (candidateParts.includes(target) || targetParts.includes(candidate)) return true
 
+  if (candidate.startsWith(target) || target.startsWith(candidate)) return true
+
   if (candidate.length >= 3 && target.length >= 3) {
     return candidate.includes(target) || target.includes(candidate)
   }
@@ -107,6 +109,9 @@ function tokensMatch(candidate: string, target: string): boolean {
 
 /** Map Gentle clip timings onto display-word indices in the script text. */
 export function alignTimingsToText(words: string[], timings: WordTiming[]): TextWordAlignment[] {
+  if (words.length === 0 || timings.length === 0) return []
+
+  const maxEnd = Math.max(...timings.map((t) => t.end), 0)
   const aligned: TextWordAlignment[] = []
   let textIdx = 0
 
@@ -114,9 +119,16 @@ export function alignTimingsToText(words: string[], timings: WordTiming[]): Text
     if (isSkippableTiming(timing.word)) continue
 
     const target = normalizeToken(timing.word)
+    const positionHint =
+      maxEnd > 0
+        ? Math.min(words.length - 1, Math.floor((timing.start / maxEnd) * words.length))
+        : textIdx
+
     let found = -1
 
-    for (let i = textIdx; i < Math.min(words.length, textIdx + 4); i++) {
+    const hintStart = Math.max(textIdx, positionHint - 3)
+    const hintEnd = Math.min(words.length, positionHint + 4)
+    for (let i = hintStart; i < hintEnd; i++) {
       const candidate = normalizeToken(words[i])
       if (tokensMatch(candidate, target)) {
         found = i
@@ -125,7 +137,27 @@ export function alignTimingsToText(words: string[], timings: WordTiming[]): Text
     }
 
     if (found === -1) {
+      for (let i = textIdx; i < Math.min(words.length, textIdx + 4); i++) {
+        const candidate = normalizeToken(words[i])
+        if (tokensMatch(candidate, target)) {
+          found = i
+          break
+        }
+      }
+    }
+
+    if (found === -1) {
       for (let i = textIdx; i < words.length; i++) {
+        const candidate = normalizeToken(words[i])
+        if (tokensMatch(candidate, target)) {
+          found = i
+          break
+        }
+      }
+    }
+
+    if (found === -1 && maxEnd > 0 && timing.start >= maxEnd * 0.85) {
+      for (let i = words.length - 1; i >= textIdx; i--) {
         const candidate = normalizeToken(words[i])
         if (tokensMatch(candidate, target)) {
           found = i

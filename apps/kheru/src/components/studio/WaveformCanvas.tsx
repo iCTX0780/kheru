@@ -10,6 +10,8 @@ interface WaveformCanvasProps {
   onSeek: (time: number) => void
   disabled?: boolean
   className?: string
+  preferPeaks?: boolean
+  estimatedDuration?: number
 }
 
 export function WaveformCanvas({
@@ -19,6 +21,8 @@ export function WaveformCanvas({
   onSeek,
   disabled,
   className,
+  preferPeaks,
+  estimatedDuration,
 }: WaveformCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dataRef = useRef<WaveformData | null>(null)
@@ -72,11 +76,15 @@ export function WaveformCanvas({
     ctx.fillRect(Math.min(progressX, width - 1), 0, 2, height)
   }, [currentTime, duration])
 
-  useWaveform(audioUrl, (data) => {
-    dataRef.current = data
-    setDecoded(true)
-    draw()
-  })
+  useWaveform(
+    audioUrl,
+    (data) => {
+      dataRef.current = data
+      setDecoded(true)
+      draw()
+    },
+    { preferPeaks, estimatedDuration }
+  )
 
   useEffect(() => {
     setDecoded(false)

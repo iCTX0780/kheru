@@ -1,7 +1,8 @@
 import { create } from 'zustand'
-import { createJSONStorage, persist } from 'zustand/middleware'
 import type { WordTiming } from '@/lib/playback-words'
 import type { ImportBlock } from '@/lib/parse-script'
+import type { ProjectChapter } from '@/lib/project-db'
+import { createDefaultChapter, syncChapterSnapshot } from '@/lib/project-db'
 import { DEFAULT_VOICE_ID, lengthScaleForSpeaker, voiceForSpeaker, VOICE_BY_ID } from '@/lib/voice-catalog'
 
 export type ParagraphStatus = 'idle' | 'generating' | 'done' | 'stale' | 'error'
@@ -60,6 +61,8 @@ export interface GenerationSession {
   paragraphIds: string[]
   currentIndex: number
   completedIds: string[]
+  startedAt: number | null
+  estimatedTotalMs: number | null
   failedId?: string
   error?: string
 }
@@ -69,6 +72,8 @@ const initialGenerationSession: GenerationSession = {
   paragraphIds: [],
   currentIndex: 0,
   completedIds: [],
+  startedAt: null,
+  estimatedTotalMs: null,
 }
 
 export interface StudioStore {
@@ -79,14 +84,26 @@ export interface StudioStore {
   selectedParagraphId: string | null
   studioPlayMode: StudioPlayMode
   generationSession: GenerationSession
+  projectId: string
   projectTitle: string
   chapterTitle: string
+  chapters: ProjectChapter[]
+  activeChapterId: string
 
   setVoices: (voices: string[], defaultVoice?: string) => void
   setSelectedParagraphId: (id: string | null) => void
   setStudioPlayMode: (mode: StudioPlayMode) => void
+  setProjectId: (id: string) => void
   setProjectTitle: (title: string) => void
   setChapterTitle: (title: string) => void
+  addChapter: () => void
+  switchChapter: (chapterId: string) => void
+  loadProject: (project: {
+    id: string
+    title: string
+    chapters: ProjectChapter[]
+    activeChapterId: string
+  }) => void
   addParagraph: (afterId?: string) => void
   importParagraphs: (blocks: ImportBlock[]) => void
   updateParagraph: (id: string, updates: Partial<Pick<Paragraph, 'text' | 'voice' | 'lengthScale'>>) => void
@@ -110,7 +127,7 @@ export interface StudioStore {
   resetPlayback: () => void
   setPreviewPlaybackRate: (rate: number) => void
 
-  startGenerationSession: (paragraphIds: string[]) => void
+  startGenerationSession: (paragraphIds: string[], estimatedTotalMs?: number) => void
   advanceGenerationSession: (completedId: string) => void
   finishGenerationSession: () => void
   failGenerationSession: (failedId: string | undefined, error: string) => void
@@ -128,6 +145,16 @@ function createParagraph(voice: string): Paragraph {
     wordTimings: null,
     status: 'idle',
   }
+}
+
+function syncChapters(
+  chapters: ProjectChapter[],
+  activeChapterId: string,
+  title: string,
+  paragraphs: Paragraph[],
+  chapter: Chapter
+): ProjectChapter[] {
+  return syncChapterSnapshot(chapters, activeChapterId, title, paragraphs, chapter)
 }
 
 function markChapterStale(chapter: Chapter): Chapter {
@@ -166,11 +193,27 @@ const initialPlayback: PlaybackState = {
   previewPlaybackRate: 1,
 }
 
-interface PersistedStudio {
+function withSyncedChapters<T extends {
   paragraphs: Paragraph[]
   chapter: Chapter
-  projectTitle?: string
-  chapterTitle?: string
+  chapterTitle: string
+  chapters: ProjectChapter[]
+  activeChapterId: string
+}>(
+  state: T,
+  updates: Partial<Pick<T, 'paragraphs' | 'chapter' | 'chapterTitle'>> & Record<string, unknown>
+): T & { chapters: ProjectChapter[] } {
+  const paragraphs = (updates.paragraphs as Paragraph[] | undefined) ?? state.paragraphs
+  const chapter = (updates.chapter as Chapter | undefined) ?? state.chapter
+  const chapterTitle = (updates.chapterTitle as string | undefined) ?? state.chapterTitle
+  return {
+    ...state,
+    ...updates,
+    paragraphs,
+    chapter,
+    chapterTitle,
+    chapters: syncChapters(state.chapters, state.activeChapterId, chapterTitle, paragraphs, chapter),
+  } as T & { chapters: ProjectChapter[] }
 }
 
 function normalizeParagraph(paragraph: Paragraph): Paragraph {
@@ -191,9 +234,7 @@ function normalizeParagraph(paragraph: Paragraph): Paragraph {
   return normalized
 }
 
-export const useStudioStore = create<StudioStore>()(
-  persist(
-    (set) => ({
+export const useStudioStore = create<StudioStore>()((set) => ({
   paragraphs: [],
   voices: [],
   chapter: { audioUrl: null, segments: [], status: 'idle' },
@@ -201,16 +242,91 @@ export const useStudioStore = create<StudioStore>()(
   selectedParagraphId: null,
   studioPlayMode: 'until-end',
   generationSession: initialGenerationSession,
+  projectId: '',
   projectTitle: 'Untitled project',
   chapterTitle: 'Chapter 1',
+  chapters: [],
+  activeChapterId: '',
 
   setSelectedParagraphId: (id) => set({ selectedParagraphId: id }),
 
   setStudioPlayMode: (mode) => set({ studioPlayMode: mode }),
 
+  setProjectId: (id) => set({ projectId: id }),
+
   setProjectTitle: (title) => set({ projectTitle: title }),
 
-  setChapterTitle: (title) => set({ chapterTitle: title }),
+  setChapterTitle: (title) =>
+    set((state) => withSyncedChapters(state, { chapterTitle: title })),
+
+  loadProject: (project) => {
+    const chapter =
+      project.chapters.find((c) => c.id === project.activeChapterId) ?? project.chapters[0]
+    if (!chapter) return
+    set({
+      projectId: project.id,
+      projectTitle: project.title,
+      chapters: project.chapters.map((c) => ({
+        ...c,
+        paragraphs: c.paragraphs.map(normalizeParagraph),
+      })),
+      activeChapterId: chapter.id,
+      chapterTitle: chapter.title,
+      paragraphs: chapter.paragraphs.map(normalizeParagraph),
+      chapter:
+        chapter.chapter.status === 'generating'
+          ? { ...chapter.chapter, status: chapter.chapter.audioUrl ? 'done' : 'idle', error: undefined }
+          : chapter.chapter,
+      playback: initialPlayback,
+      generationSession: initialGenerationSession,
+      selectedParagraphId: chapter.paragraphs[0]?.id ?? null,
+    })
+  },
+
+  addChapter: () =>
+    set((state) => {
+      const synced = syncChapters(
+        state.chapters,
+        state.activeChapterId,
+        state.chapterTitle,
+        state.paragraphs,
+        state.chapter
+      )
+      const voice = state.voices[0] || ''
+      const newChapter = createDefaultChapter(`Chapter ${synced.length + 1}`, voice)
+      return {
+        chapters: [...synced, newChapter],
+        activeChapterId: newChapter.id,
+        chapterTitle: newChapter.title,
+        paragraphs: newChapter.paragraphs,
+        chapter: newChapter.chapter,
+        playback: initialPlayback,
+        selectedParagraphId: newChapter.paragraphs[0]?.id ?? null,
+      }
+    }),
+
+  switchChapter: (chapterId) =>
+    set((state) => {
+      if (chapterId === state.activeChapterId) return state
+      const synced = syncChapters(
+        state.chapters,
+        state.activeChapterId,
+        state.chapterTitle,
+        state.paragraphs,
+        state.chapter
+      )
+      const next = synced.find((c) => c.id === chapterId)
+      if (!next) return state
+      return {
+        chapters: synced,
+        activeChapterId: next.id,
+        chapterTitle: next.title,
+        paragraphs: next.paragraphs,
+        chapter: next.chapter,
+        playback: initialPlayback,
+        selectedParagraphId: next.paragraphs[0]?.id ?? null,
+      }
+    }),
 
   setPreviewPlaybackRate: (rate) =>
     set((state) => ({
@@ -244,20 +360,20 @@ export const useStudioStore = create<StudioStore>()(
       const voice = state.voices[0] || ''
       const paragraph = createParagraph(voice)
       if (!afterId) {
-        return {
+        return withSyncedChapters(state, {
           paragraphs: [...state.paragraphs, paragraph],
           chapter: markChapterStale(state.chapter),
           selectedParagraphId: paragraph.id,
-        }
+        })
       }
       const index = state.paragraphs.findIndex((p) => p.id === afterId)
       const paragraphs = [...state.paragraphs]
       paragraphs.splice(index + 1, 0, paragraph)
-      return {
+      return withSyncedChapters(state, {
         paragraphs,
         chapter: markChapterStale(state.chapter),
         selectedParagraphId: paragraph.id,
-      }
+      })
     }),
 
   importParagraphs: (blocks) =>
@@ -275,19 +391,21 @@ export const useStudioStore = create<StudioStore>()(
             lengthScale: lengthScaleForSpeaker(block.speaker, voiceDefault),
           }
         })
-      return {
+      return withSyncedChapters(state, {
         paragraphs: imported.length > 0 ? imported : state.paragraphs,
         chapter: { audioUrl: null, segments: [], status: 'idle' },
         playback: initialPlayback,
         selectedParagraphId: imported[0]?.id ?? state.selectedParagraphId,
-      }
+      })
     }),
 
   updateParagraph: (id, updates) =>
-    set((state) => ({
-      paragraphs: state.paragraphs.map((p) => (p.id === id ? paragraphAfterEdit(p, updates) : p)),
-      chapter: markChapterStale(state.chapter),
-    })),
+    set((state) =>
+      withSyncedChapters(state, {
+        paragraphs: state.paragraphs.map((p) => (p.id === id ? paragraphAfterEdit(p, updates) : p)),
+        chapter: markChapterStale(state.chapter),
+      })
+    ),
 
   removeParagraph: (id) =>
     set((state) => {
@@ -300,11 +418,11 @@ export const useStudioStore = create<StudioStore>()(
         selectedParagraphId =
           nextParagraphs[Math.min(removedIndex, nextParagraphs.length - 1)]?.id ?? null
       }
-      return {
+      return withSyncedChapters(state, {
         paragraphs: nextParagraphs,
         chapter: markChapterStale(state.chapter),
         selectedParagraphId,
-      }
+      })
     }),
 
   moveParagraph: (id, direction) =>
@@ -315,7 +433,7 @@ export const useStudioStore = create<StudioStore>()(
       if (target < 0 || target >= state.paragraphs.length) return state
       const paragraphs = [...state.paragraphs]
       ;[paragraphs[index], paragraphs[target]] = [paragraphs[target], paragraphs[index]]
-      return { paragraphs, chapter: markChapterStale(state.chapter) }
+      return withSyncedChapters(state, { paragraphs, chapter: markChapterStale(state.chapter) })
     }),
 
   setParagraphGenerating: (id) =>
@@ -336,13 +454,15 @@ export const useStudioStore = create<StudioStore>()(
     }),
 
   setParagraphDone: (id, audioUrl, duration, wordTimings = null) =>
-    set((state) => ({
-      paragraphs: state.paragraphs.map((p) =>
-        p.id === id
-          ? { ...p, status: 'done', audioUrl, duration, wordTimings, error: undefined }
-          : p
-      ),
-    })),
+    set((state) =>
+      withSyncedChapters(state, {
+        paragraphs: state.paragraphs.map((p) =>
+          p.id === id
+            ? { ...p, status: 'done', audioUrl, duration, wordTimings, error: undefined }
+            : p
+        ),
+      })
+    ),
 
   applyParagraphWordTimings: (items) =>
     set((state) => {
@@ -368,14 +488,18 @@ export const useStudioStore = create<StudioStore>()(
     })),
 
   setChapterDone: (audioUrl, segments) =>
-    set(() => ({
-      chapter: { audioUrl, segments, status: 'done', error: undefined },
-    })),
+    set((state) =>
+      withSyncedChapters(state, {
+        chapter: { audioUrl, segments, status: 'done', error: undefined },
+      })
+    ),
 
   setChapterError: (message) =>
-    set((state) => ({
-      chapter: { ...state.chapter, status: 'error', error: message },
-    })),
+    set((state) =>
+      withSyncedChapters(state, {
+        chapter: { ...state.chapter, status: 'error', error: message },
+      })
+    ),
 
   invalidateParagraphAudio: (id) =>
     set((state) => ({
@@ -387,14 +511,16 @@ export const useStudioStore = create<StudioStore>()(
     })),
 
   invalidateChapterAudio: () =>
-    set((state) => ({
-      chapter: {
-        ...state.chapter,
-        status: state.chapter.status === 'idle' ? 'idle' : 'stale',
-        audioUrl: null,
-        segments: [],
-      },
-    })),
+    set((state) =>
+      withSyncedChapters(state, {
+        chapter: {
+          ...state.chapter,
+          status: state.chapter.status === 'idle' ? 'idle' : 'stale',
+          audioUrl: null,
+          segments: [],
+        },
+      })
+    ),
 
   setPlayback: (updates) =>
     set((state) => ({
@@ -403,13 +529,15 @@ export const useStudioStore = create<StudioStore>()(
 
   resetPlayback: () => set({ playback: initialPlayback }),
 
-  startGenerationSession: (paragraphIds) =>
+  startGenerationSession: (paragraphIds, estimatedTotalMs) =>
     set({
       generationSession: {
         active: true,
         paragraphIds,
         currentIndex: 0,
         completedIds: [],
+        startedAt: Date.now(),
+        estimatedTotalMs: estimatedTotalMs ?? null,
       },
     }),
 
@@ -440,47 +568,4 @@ export const useStudioStore = create<StudioStore>()(
         error,
       },
     })),
-    }),
-    {
-      name: 'kheru-studio',
-      storage: createJSONStorage(() =>
-        typeof window !== 'undefined'
-          ? localStorage
-          : {
-              getItem: () => null,
-              setItem: () => undefined,
-              removeItem: () => undefined,
-            }
-      ),
-      partialize: (state): PersistedStudio => ({
-        paragraphs: state.paragraphs,
-        chapter: state.chapter,
-        projectTitle: state.projectTitle,
-        chapterTitle: state.chapterTitle,
-      }),
-      merge: (persisted, current) => {
-        const saved = persisted as Partial<PersistedStudio>
-        let chapter = saved.chapter ?? current.chapter
-        if (chapter.status === 'generating') {
-          chapter = {
-            ...chapter,
-            status: chapter.audioUrl ? 'done' : 'idle',
-            error: undefined,
-          }
-        }
-        return {
-          ...current,
-          paragraphs: (saved.paragraphs ?? current.paragraphs).map(normalizeParagraph),
-          chapter,
-          projectTitle: saved.projectTitle ?? current.projectTitle,
-          chapterTitle: saved.chapterTitle ?? current.chapterTitle,
-          selectedParagraphId:
-            current.selectedParagraphId ??
-            (saved.paragraphs ?? current.paragraphs)[0]?.id ??
-            null,
-        }
-      },
-      skipHydration: true,
-    }
-  )
-)
+}))

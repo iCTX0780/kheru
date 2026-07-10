@@ -10,16 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as StudioProjectIdRouteImport } from './routes/studio.$projectId'
 import { Route as ApiVoicesRouteImport } from './routes/api/voices'
 import { Route as ApiStitchRouteImport } from './routes/api/stitch'
+import { Route as ApiProjectsRouteImport } from './routes/api/projects'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as ApiExportRouteImport } from './routes/api/export'
 import { Route as ApiVoicePreviewSlugRouteImport } from './routes/api/voice-preview.$slug'
+import { Route as ApiProjectsIdRouteImport } from './routes/api/projects.$id'
 import { Route as ApiAudioRunIdRouteImport } from './routes/api/audio.$runId'
+import { Route as ApiAudioRunIdPeaksRouteImport } from './routes/api/audio.$runId.peaks'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioProjectIdRoute = StudioProjectIdRouteImport.update({
+  id: '/studio/$projectId',
+  path: '/studio/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiVoicesRoute = ApiVoicesRouteImport.update({
@@ -30,6 +39,11 @@ const ApiVoicesRoute = ApiVoicesRouteImport.update({
 const ApiStitchRoute = ApiStitchRouteImport.update({
   id: '/api/stitch',
   path: '/api/stitch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProjectsRoute = ApiProjectsRouteImport.update({
+  id: '/api/projects',
+  path: '/api/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateRoute = ApiGenerateRouteImport.update({
@@ -47,39 +61,61 @@ const ApiVoicePreviewSlugRoute = ApiVoicePreviewSlugRouteImport.update({
   path: '/api/voice-preview/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProjectsIdRoute = ApiProjectsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiProjectsRoute,
+} as any)
 const ApiAudioRunIdRoute = ApiAudioRunIdRouteImport.update({
   id: '/api/audio/$runId',
   path: '/api/audio/$runId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAudioRunIdPeaksRoute = ApiAudioRunIdPeaksRouteImport.update({
+  id: '/peaks',
+  path: '/peaks',
+  getParentRoute: () => ApiAudioRunIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/export': typeof ApiExportRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/projects': typeof ApiProjectsRouteWithChildren
   '/api/stitch': typeof ApiStitchRoute
   '/api/voices': typeof ApiVoicesRoute
-  '/api/audio/$runId': typeof ApiAudioRunIdRoute
+  '/studio/$projectId': typeof StudioProjectIdRoute
+  '/api/audio/$runId': typeof ApiAudioRunIdRouteWithChildren
+  '/api/projects/$id': typeof ApiProjectsIdRoute
   '/api/voice-preview/$slug': typeof ApiVoicePreviewSlugRoute
+  '/api/audio/$runId/peaks': typeof ApiAudioRunIdPeaksRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/export': typeof ApiExportRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/projects': typeof ApiProjectsRouteWithChildren
   '/api/stitch': typeof ApiStitchRoute
   '/api/voices': typeof ApiVoicesRoute
-  '/api/audio/$runId': typeof ApiAudioRunIdRoute
+  '/studio/$projectId': typeof StudioProjectIdRoute
+  '/api/audio/$runId': typeof ApiAudioRunIdRouteWithChildren
+  '/api/projects/$id': typeof ApiProjectsIdRoute
   '/api/voice-preview/$slug': typeof ApiVoicePreviewSlugRoute
+  '/api/audio/$runId/peaks': typeof ApiAudioRunIdPeaksRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/export': typeof ApiExportRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/projects': typeof ApiProjectsRouteWithChildren
   '/api/stitch': typeof ApiStitchRoute
   '/api/voices': typeof ApiVoicesRoute
-  '/api/audio/$runId': typeof ApiAudioRunIdRoute
+  '/studio/$projectId': typeof StudioProjectIdRoute
+  '/api/audio/$runId': typeof ApiAudioRunIdRouteWithChildren
+  '/api/projects/$id': typeof ApiProjectsIdRoute
   '/api/voice-preview/$slug': typeof ApiVoicePreviewSlugRoute
+  '/api/audio/$runId/peaks': typeof ApiAudioRunIdPeaksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,37 +123,51 @@ export interface FileRouteTypes {
     | '/'
     | '/api/export'
     | '/api/generate'
+    | '/api/projects'
     | '/api/stitch'
     | '/api/voices'
+    | '/studio/$projectId'
     | '/api/audio/$runId'
+    | '/api/projects/$id'
     | '/api/voice-preview/$slug'
+    | '/api/audio/$runId/peaks'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/api/export'
     | '/api/generate'
+    | '/api/projects'
     | '/api/stitch'
     | '/api/voices'
+    | '/studio/$projectId'
     | '/api/audio/$runId'
+    | '/api/projects/$id'
     | '/api/voice-preview/$slug'
+    | '/api/audio/$runId/peaks'
   id:
     | '__root__'
     | '/'
     | '/api/export'
     | '/api/generate'
+    | '/api/projects'
     | '/api/stitch'
     | '/api/voices'
+    | '/studio/$projectId'
     | '/api/audio/$runId'
+    | '/api/projects/$id'
     | '/api/voice-preview/$slug'
+    | '/api/audio/$runId/peaks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiExportRoute: typeof ApiExportRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
+  ApiProjectsRoute: typeof ApiProjectsRouteWithChildren
   ApiStitchRoute: typeof ApiStitchRoute
   ApiVoicesRoute: typeof ApiVoicesRoute
-  ApiAudioRunIdRoute: typeof ApiAudioRunIdRoute
+  StudioProjectIdRoute: typeof StudioProjectIdRoute
+  ApiAudioRunIdRoute: typeof ApiAudioRunIdRouteWithChildren
   ApiVoicePreviewSlugRoute: typeof ApiVoicePreviewSlugRoute
 }
 
@@ -128,6 +178,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio/$projectId': {
+      id: '/studio/$projectId'
+      path: '/studio/$projectId'
+      fullPath: '/studio/$projectId'
+      preLoaderRoute: typeof StudioProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/voices': {
@@ -142,6 +199,13 @@ declare module '@tanstack/react-router' {
       path: '/api/stitch'
       fullPath: '/api/stitch'
       preLoaderRoute: typeof ApiStitchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/projects': {
+      id: '/api/projects'
+      path: '/api/projects'
+      fullPath: '/api/projects'
+      preLoaderRoute: typeof ApiProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate': {
@@ -165,6 +229,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVoicePreviewSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/projects/$id': {
+      id: '/api/projects/$id'
+      path: '/$id'
+      fullPath: '/api/projects/$id'
+      preLoaderRoute: typeof ApiProjectsIdRouteImport
+      parentRoute: typeof ApiProjectsRoute
+    }
     '/api/audio/$runId': {
       id: '/api/audio/$runId'
       path: '/api/audio/$runId'
@@ -172,16 +243,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAudioRunIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/audio/$runId/peaks': {
+      id: '/api/audio/$runId/peaks'
+      path: '/peaks'
+      fullPath: '/api/audio/$runId/peaks'
+      preLoaderRoute: typeof ApiAudioRunIdPeaksRouteImport
+      parentRoute: typeof ApiAudioRunIdRoute
+    }
   }
 }
+
+interface ApiProjectsRouteChildren {
+  ApiProjectsIdRoute: typeof ApiProjectsIdRoute
+}
+
+const ApiProjectsRouteChildren: ApiProjectsRouteChildren = {
+  ApiProjectsIdRoute: ApiProjectsIdRoute,
+}
+
+const ApiProjectsRouteWithChildren = ApiProjectsRoute._addFileChildren(
+  ApiProjectsRouteChildren,
+)
+
+interface ApiAudioRunIdRouteChildren {
+  ApiAudioRunIdPeaksRoute: typeof ApiAudioRunIdPeaksRoute
+}
+
+const ApiAudioRunIdRouteChildren: ApiAudioRunIdRouteChildren = {
+  ApiAudioRunIdPeaksRoute: ApiAudioRunIdPeaksRoute,
+}
+
+const ApiAudioRunIdRouteWithChildren = ApiAudioRunIdRoute._addFileChildren(
+  ApiAudioRunIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiExportRoute: ApiExportRoute,
   ApiGenerateRoute: ApiGenerateRoute,
+  ApiProjectsRoute: ApiProjectsRouteWithChildren,
   ApiStitchRoute: ApiStitchRoute,
   ApiVoicesRoute: ApiVoicesRoute,
-  ApiAudioRunIdRoute: ApiAudioRunIdRoute,
+  StudioProjectIdRoute: StudioProjectIdRoute,
+  ApiAudioRunIdRoute: ApiAudioRunIdRouteWithChildren,
   ApiVoicePreviewSlugRoute: ApiVoicePreviewSlugRoute,
 }
 export const routeTree = rootRouteImport

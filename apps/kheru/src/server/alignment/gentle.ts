@@ -14,10 +14,43 @@ interface GentleResponse {
 }
 
 const GENTLE_TIMEOUT_MS = 120_000
+const GENTLE_PROBE_MS = 3_000
+
+let gentleReachable: boolean | null = null
+let gentleReachableUrl: string | null = null
+let gentleUnreachableLogged = false
 
 export function gentleUrl(): string | null {
   const url = process.env.GENTLE_URL?.trim()
   return url || null
+}
+
+/** Probe Gentle once per process/base URL; skip alignment when unreachable. */
+export async function isGentleReachable(baseUrl: string): Promise<boolean> {
+  const normalized = baseUrl.replace(/\/$/, '')
+  if (gentleReachable !== null && gentleReachableUrl === normalized) {
+    return gentleReachable
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), GENTLE_PROBE_MS)
+
+  try {
+    const response = await fetch(`${normalized}/`, { signal: controller.signal })
+    gentleReachable = response.ok
+  } catch {
+    gentleReachable = false
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  gentleReachableUrl = normalized
+  if (!gentleReachable && !gentleUnreachableLogged) {
+    gentleUnreachableLogged = true
+    console.warn(`Gentle unavailable at ${normalized} — skipping alignment`)
+  }
+
+  return gentleReachable
 }
 
 /** Align a WAV clip to its transcript via Gentle. Returns clip-relative word timings. */

@@ -21,19 +21,24 @@ function writeJsonAtomic(path: string, data: unknown): void {
   renameSync(tmp, path)
 }
 
-export interface ProjectRecord {
+export interface ServerProjectRecord {
   id: string
-  name: string
-  paragraphs: unknown[]
+  title: string
+  chapters: unknown[]
+  activeChapterId: string
   updatedAt: string
 }
 
 export const jsonStore = {
-  listProjects(): ProjectRecord[] {
-    return readJson<ProjectRecord[]>(PROJECTS_FILE, [])
+  listProjects(): ServerProjectRecord[] {
+    return readJson<ServerProjectRecord[]>(PROJECTS_FILE, [])
   },
 
-  upsertProject(project: ProjectRecord): ProjectRecord {
+  getProject(id: string): ServerProjectRecord | undefined {
+    return this.listProjects().find((p) => p.id === id)
+  },
+
+  upsertProject(project: ServerProjectRecord): ServerProjectRecord {
     const projects = this.listProjects()
     const idx = projects.findIndex((p) => p.id === project.id)
     const next = { ...project, updatedAt: new Date().toISOString() }
@@ -41,6 +46,14 @@ export const jsonStore = {
     else projects[idx] = next
     writeJsonAtomic(PROJECTS_FILE, projects)
     return next
+  },
+
+  deleteProject(id: string): boolean {
+    const projects = this.listProjects()
+    const next = projects.filter((p) => p.id !== id)
+    if (next.length === projects.length) return false
+    writeJsonAtomic(PROJECTS_FILE, next)
+    return true
   },
 
   appendGeneration(entry: { runId: string; createdAt?: string }): void {

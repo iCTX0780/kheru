@@ -17,6 +17,7 @@ dev-kheru:
 dev: dev-kheru
 
 dev-gentle: gentle-up
+	@curl -sf http://127.0.0.1:8765/ >/dev/null || (echo "ERROR: Gentle not responding on :8765 after gentle-up" && exit 1)
 	$(WITH_NODE) bash -c 'cd apps/kheru && DATA_DIR="$$(pwd)/data" GENTLE_URL=http://127.0.0.1:8765 pnpm dev'
 
 start-kheru:
@@ -39,7 +40,7 @@ typecheck:
 COMPOSE := docker compose -p kheru -f apps/kheru/docker-compose.yml
 
 gentle-up:
-	$(COMPOSE) up gentle -d --wait
+	$(COMPOSE) up gentle -d --wait || (echo "ERROR: Gentle failed to start. Is Docker running? Try: docker pull lowerquality/gentle" && exit 1)
 	$(COMPOSE) ps gentle
 
 gentle-down:

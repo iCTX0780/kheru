@@ -102,12 +102,14 @@ describe('voiceForSpeaker', () => {
     expect(voiceForSpeaker('YOU', 'kokoro:am_fenrir', voices)).toBe('kokoro:am_michael')
   })
 
-  it('maps HEADLINE to Adam', () => {
-    expect(voiceForSpeaker('HEADLINE', 'kokoro:am_michael', voices)).toBe('kokoro:am_adam')
+  it('maps HEADLINE and HEADING to Fenrir', () => {
+    expect(voiceForSpeaker('HEADLINE', 'kokoro:am_michael', voices)).toBe('kokoro:am_fenrir')
+    expect(voiceForSpeaker('HEADING', 'kokoro:am_michael', voices)).toBe('kokoro:am_fenrir')
   })
 
-  it('slows HEADLINE to 0.8×', () => {
+  it('slows HEADLINE and HEADING to 0.8×', () => {
     expect(lengthScaleForSpeaker('HEADLINE', 1)).toBe(fromDisplaySpeed(0.8))
+    expect(lengthScaleForSpeaker('HEADING', 1)).toBe(fromDisplaySpeed(0.8))
     expect(lengthScaleForSpeaker('YOU', 1)).toBe(1)
   })
 

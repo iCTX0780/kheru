@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/tooltip'
 import { BookOpen, Plus } from 'lucide-react'
 import { paragraphStatusRailClass } from '@/lib/paragraph-status'
+import { scrollToParagraph as scrollParagraphIntoView } from '@/lib/scroll-to-paragraph'
 import { voiceDotClass } from '@/lib/voice-colors'
 import { cn } from '@/lib/utils'
 import { useStudioStore } from '@/stores/studio'
@@ -16,6 +17,7 @@ export function NavRail() {
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
   const playback = useStudioStore((s) => s.playback)
+  const chapterTitle = useStudioStore((s) => s.chapterTitle)
   const setSelectedParagraphId = useStudioStore((s) => s.setSelectedParagraphId)
 
   const voiceIdsInUse = paragraphs.map((p) => p.voice)
@@ -23,7 +25,7 @@ export function NavRail() {
   const scrollToParagraph = (id: string) => {
     startTransition(() => {
       setSelectedParagraphId(id)
-      document.getElementById(`paragraph-${id}`)?.scrollIntoView({ block: 'nearest' })
+      scrollParagraphIntoView(id)
     })
   }
 
@@ -50,7 +52,7 @@ export function NavRail() {
           className="flex w-full items-center gap-2 rounded-md bg-sidebar-accent px-2 py-2 text-left text-sm font-medium text-sidebar-accent-foreground"
         >
           <span className="size-2 shrink-0 rounded-full bg-primary" />
-          Chapter 1
+          {chapterTitle}
         </button>
       </div>
 
@@ -74,11 +76,11 @@ export function NavRail() {
         <ul className="flex flex-col gap-0.5 pb-4">
           {paragraphs.map((paragraph, index) => {
             const isSelected = selectedParagraphId === paragraph.id
-            const isActive =
-              playback.activeParagraphId === paragraph.id ||
-              (playback.mode === 'sequence' &&
-                playback.sequenceParagraphIds[playback.sequenceIndex] === paragraph.id)
+            const isActive = playback.activeParagraphId === paragraph.id
             const preview = paragraph.text.trim().slice(0, 48) || `Paragraph ${index + 1}`
+            const subtitle = paragraph.speaker
+              ? `¶ ${index + 1} · ${paragraph.speaker.toUpperCase()}`
+              : `¶ ${index + 1}`
 
             return (
               <li key={paragraph.id}>
@@ -105,7 +107,7 @@ export function NavRail() {
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{preview}</span>
-                    <span className="text-[0.65rem] text-muted-foreground">¶ {index + 1}</span>
+                    <span className="truncate text-[0.65rem] font-mono text-muted-foreground">{subtitle}</span>
                   </span>
                 </button>
               </li>

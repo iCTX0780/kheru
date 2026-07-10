@@ -67,13 +67,15 @@ export const DEFAULT_VOICE_ID = 'kokoro:am_michael'
 
 /** Default voice per rehearsal script speaker label (case-insensitive). */
 export const SPEAKER_VOICE_DEFAULTS: Record<string, string> = {
+  HEADING: 'kokoro:am_fenrir',
+  HEADLINE: 'kokoro:am_fenrir',
   INTERVIEWER: 'kokoro:af_heart',
   YOU: 'kokoro:am_michael',
-  HEADLINE: 'kokoro:am_adam',
 }
 
 /** Optional import speed override per speaker (lengthScale; 1.25 ≈ 0.8× in the UI). */
 export const SPEAKER_LENGTH_SCALE_DEFAULTS: Record<string, number> = {
+  HEADING: fromDisplaySpeed(0.8),
   HEADLINE: fromDisplaySpeed(0.8),
 }
 

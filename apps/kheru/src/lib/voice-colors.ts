@@ -108,3 +108,16 @@ export function voiceAccentTickClass(voiceId: string, voiceIdsInUse: string[]): 
   const index = voiceColorIndex(voiceId, voiceIdsInUse)
   return ACCENT_TICK[index]
 }
+
+const CUE_BORDER: Record<number, string> = {
+  0: 'border-l-speaker-0',
+  1: 'border-l-speaker-1',
+  2: 'border-l-speaker-2',
+  3: 'border-l-speaker-3',
+  4: 'border-l-speaker-4',
+}
+
+export function voiceCueBorderClass(voiceId: string, voiceIdsInUse: string[]): string {
+  const index = voiceColorIndex(voiceId, voiceIdsInUse)
+  return CUE_BORDER[index]
+}

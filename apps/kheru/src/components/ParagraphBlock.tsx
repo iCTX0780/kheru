@@ -6,12 +6,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { HighlightedText } from '@/components/HighlightedText'
 import { VoiceAvatar } from '@/components/studio/VoiceAvatar'
 import { SlashCommandMenu } from '@/components/studio/SlashCommandMenu'
 import { useAutoResizeTextarea } from '@/hooks/use-auto-resize-textarea'
-import { voiceRowTintClass } from '@/lib/voice-colors'
+import { voiceCueBorderClass, voiceRingClass, voiceRowTintClass } from '@/lib/voice-colors'
+import { voiceDisplayName } from '@/lib/voice-catalog'
 import type { Paragraph } from '@/stores/studio'
 import { useStudioStore } from '@/stores/studio'
 import { ChevronDown, ChevronUp, MoreHorizontal, Trash2 } from 'lucide-react'
@@ -32,6 +34,7 @@ export const ParagraphBlock = memo(function ParagraphBlock({
   paragraph,
   index,
   isSelected,
+  isActive,
   isPlaying,
   activeWordIndex,
   onSelect,
@@ -48,6 +51,7 @@ export const ParagraphBlock = memo(function ParagraphBlock({
 
   const voiceIdsInUse = paragraphs.map((p) => p.voice)
   const hasText = paragraph.text.trim().length > 0
+  const isGenerating = paragraph.status === 'generating'
 
   useAutoResizeTextarea(textareaRef, paragraph.text)
 
@@ -100,7 +104,11 @@ export const ParagraphBlock = memo(function ParagraphBlock({
             'group relative rounded-lg px-3 py-2.5 transition-colors',
             hasText && voiceRowTintClass(paragraph.voice, voiceIdsInUse),
             isSelected && 'bg-script-selection',
-            isPlaying && 'ring-1 ring-primary/20'
+            isActive && !isSelected && 'ring-1',
+            isActive && !isSelected && voiceRingClass(paragraph.voice, voiceIdsInUse),
+            isPlaying && 'ring-1',
+            isPlaying && voiceRingClass(paragraph.voice, voiceIdsInUse),
+            isGenerating && 'ring-1 ring-status-generating/40 motion-safe:animate-pulse'
           )}
         >
           <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
@@ -158,6 +166,23 @@ export const ParagraphBlock = memo(function ParagraphBlock({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+
+          {paragraph.speaker && (
+            <div className="mb-1.5 flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className={cn(
+                  'rounded-sm border-l-2 bg-transparent px-1.5 py-0 font-mono text-[0.65rem] uppercase tracking-widest',
+                  voiceCueBorderClass(paragraph.voice, voiceIdsInUse)
+                )}
+              >
+                {paragraph.speaker}
+              </Badge>
+              <span className="font-heading text-[0.65rem] text-muted-foreground">
+                {voiceDisplayName(paragraph.voice)}
+              </span>
+            </div>
+          )}
 
           {isPlaying && hasText ? (
             <div className="text-base leading-relaxed" aria-live="polite">

@@ -3,6 +3,7 @@ import {
   shouldRetryChunkedSynth,
   splitTextForTts,
 } from '@/lib/chunk-text'
+import { prepareTextForTts } from '@/lib/tts-prepare-text'
 import { alignParagraphAudio } from '@/lib/client-tts/align'
 import { createManagedBlobUrl } from '@/lib/client-tts/blob-registry'
 import { concatWavBlobs, concatWavBlobsDuration } from '@/lib/client-tts/concat-blobs'
@@ -73,7 +74,8 @@ export async function clientGenerateParagraph(
   turn: ClientTtsTurn,
   options?: ClientGenerateOptions
 ): Promise<ClientGenerateResult> {
-  const { blob, duration } = await synthLine(turn.text, turn.voice, turn.lengthScale)
+  const { spoken } = prepareTextForTts(turn.text)
+  const { blob, duration } = await synthLine(spoken, turn.voice, turn.lengthScale)
   const audioUrl = createManagedBlobUrl(blob)
 
   if (options?.projectId && options.paragraphId) {
@@ -83,7 +85,7 @@ export async function clientGenerateParagraph(
   let wordTimings: WordTiming[] | null = null
   if (options?.align) {
     options.onAlignStart?.()
-    wordTimings = await alignParagraphAudio(blob, turn.text)
+    wordTimings = await alignParagraphAudio(blob, spoken)
   }
 
   return {

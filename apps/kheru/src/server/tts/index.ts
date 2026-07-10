@@ -4,6 +4,7 @@ import { kokoroSpeedFromLengthScale } from '@/lib/speed'
 import { validateVoice } from '@/server/voices/catalog'
 import { synthKokoro } from './kokoro'
 import { concatWavs } from './concat'
+import { prepareTextForTts } from '@/lib/tts-prepare-text'
 import { countWords, splitTextForTts, shouldRetryChunkedSynth } from './chunk-text'
 import {
   DEFAULT_GAP_SECONDS,
@@ -120,9 +121,10 @@ export async function generateConversation(
   try {
     for (let idx = 0; idx < turns.length; idx++) {
       const turn = turns[idx]
+      const { spoken } = prepareTextForTts(turn.text)
       const clipPath = tempClipPath(runId, idx)
       const lengthScale = turn.length_scale ?? 1.0
-      await synthLine(turn.text, turn.voice, clipPath, lengthScale)
+      await synthLine(spoken, turn.voice, clipPath, lengthScale)
       clips.push(clipPath)
 
       const duration = clipDurationSeconds(clipPath)
@@ -130,7 +132,7 @@ export async function generateConversation(
 
       if (alignmentEnabled && alignmentUrl) {
         try {
-          const clipWords = await alignWithGentle(clipPath, turn.text, alignmentUrl)
+          const clipWords = await alignWithGentle(clipPath, spoken, alignmentUrl)
           for (const timing of clipWords) {
             words.push({
               index: idx,

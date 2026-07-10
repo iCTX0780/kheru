@@ -2,6 +2,7 @@ import { startTransition, useEffect } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ParagraphBlock } from '@/components/ParagraphBlock'
 import { ScriptComposer } from '@/components/studio/ScriptComposer'
+import { scrollToParagraph } from '@/lib/scroll-to-paragraph'
 import type { VoiceInfo } from '@/lib/api'
 import type { Paragraph, PlaybackState } from '@/stores/studio'
 
@@ -40,13 +41,13 @@ export function ScriptTimeline({
   useEffect(() => {
     const activeId = playback.activeParagraphId
     if (!activeId || !playback.isPlaying) return
-    document.getElementById(`paragraph-${activeId}`)?.scrollIntoView({ block: 'nearest' })
+    scrollToParagraph(activeId)
   }, [playback.activeParagraphId, playback.isPlaying])
 
   return (
     <div className="relative mx-auto w-full max-w-3xl px-6 py-8">
       <div
-        className="pointer-events-none absolute bottom-8 left-[calc(1.5rem+15px)] top-8 w-px bg-script-thread"
+        className="pointer-events-none absolute bottom-8 left-[calc(1.5rem+1rem)] top-8 w-px bg-script-thread"
         aria-hidden
       />
 
@@ -56,10 +57,9 @@ export function ScriptTimeline({
         ) : (
           <>
             {paragraphs.map((paragraph, index) => {
-              const isActivePlayback =
-                playback.activeParagraphId === paragraph.id ||
-                (playback.mode === 'sequence' &&
-                  playback.sequenceParagraphIds[playback.sequenceIndex] === paragraph.id)
+              const isActivePlayback = playback.activeParagraphId === paragraph.id
+              const isPlayingParagraph =
+                playback.isPlaying && playback.activeParagraphId === paragraph.id
 
               return (
                 <ParagraphBlock
@@ -68,12 +68,7 @@ export function ScriptTimeline({
                   index={index}
                   isSelected={selectedParagraphId === paragraph.id}
                   isActive={isActivePlayback}
-                  isPlaying={
-                    playback.isPlaying &&
-                    (playback.playingParagraphId === paragraph.id ||
-                      (playback.mode === 'sequence' &&
-                        playback.sequenceParagraphIds[playback.sequenceIndex] === paragraph.id))
-                  }
+                  isPlaying={isPlayingParagraph}
                   activeWordIndex={isActivePlayback ? playback.activeWordIndex : null}
                   onSelect={() => startTransition(() => onSelectParagraph(paragraph.id))}
                   onImportOpen={onImportOpen}

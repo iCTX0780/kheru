@@ -36,6 +36,8 @@ export function ExportMenu() {
 
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const chapter = useStudioStore((s) => s.chapter)
+  const projectTitle = useStudioStore((s) => s.projectTitle)
+  const chapterTitle = useStudioStore((s) => s.chapterTitle)
 
   const fullMixReady = canExportFullMix(paragraphs, chapter)
   const paragraphsReady = canExportParagraphs(paragraphs)
@@ -88,7 +90,9 @@ export function ExportMenu() {
           <DropdownMenuItem
             disabled={!fullMixReady || busyAction !== null}
             onClick={() =>
-              void runExport('full-mix-wav', () => exportFullMix(paragraphs, chapter, 'wav'))
+              void runExport('full-mix-wav', () =>
+                exportFullMix(paragraphs, chapter, 'wav', projectTitle, chapterTitle)
+              )
             }
           >
             {busyAction === 'full-mix-wav' ? <Spinner /> : <FileAudio />}
@@ -97,7 +101,9 @@ export function ExportMenu() {
           <DropdownMenuItem
             disabled={!fullMixReady || busyAction !== null}
             onClick={() =>
-              void runExport('full-mix-mp3', () => exportFullMix(paragraphs, chapter, 'mp3'))
+              void runExport('full-mix-mp3', () =>
+                exportFullMix(paragraphs, chapter, 'mp3', projectTitle, chapterTitle)
+              )
             }
           >
             {busyAction === 'full-mix-mp3' ? <Spinner /> : <FileAudio />}
@@ -106,7 +112,9 @@ export function ExportMenu() {
           <DropdownMenuItem
             disabled={!paragraphsReady || busyAction !== null}
             onClick={() =>
-              void runExport('paragraphs-zip', () => exportParagraphsZip(paragraphs))
+              void runExport('paragraphs-zip', () =>
+                exportParagraphsZip(paragraphs, projectTitle, chapterTitle)
+              )
             }
           >
             {busyAction === 'paragraphs-zip' ? <Spinner /> : <FolderArchive />}
@@ -120,7 +128,7 @@ export function ExportMenu() {
             disabled={!subtitlesReady || busyAction !== null}
             onClick={() =>
               void runExport('subtitles-srt', () =>
-                exportSubtitles(paragraphs, chapter, 'srt', 'paragraph')
+                exportSubtitles(paragraphs, chapter, 'srt', 'paragraph', projectTitle, chapterTitle)
               )
             }
           >
@@ -131,7 +139,7 @@ export function ExportMenu() {
             disabled={!subtitlesReady || busyAction !== null}
             onClick={() =>
               void runExport('subtitles-vtt', () =>
-                exportSubtitles(paragraphs, chapter, 'vtt', 'paragraph')
+                exportSubtitles(paragraphs, chapter, 'vtt', 'paragraph', projectTitle, chapterTitle)
               )
             }
           >
@@ -142,7 +150,7 @@ export function ExportMenu() {
             disabled={!subtitlesReady || busyAction !== null}
             onClick={() =>
               void runExport('subtitles-words-srt', () =>
-                exportSubtitles(paragraphs, chapter, 'srt', 'word')
+                exportSubtitles(paragraphs, chapter, 'srt', 'word', projectTitle, chapterTitle)
               )
             }
           >
@@ -153,7 +161,7 @@ export function ExportMenu() {
             disabled={!subtitlesReady || busyAction !== null}
             onClick={() =>
               void runExport('subtitles-words-vtt', () =>
-                exportSubtitles(paragraphs, chapter, 'vtt', 'word')
+                exportSubtitles(paragraphs, chapter, 'vtt', 'word', projectTitle, chapterTitle)
               )
             }
           >

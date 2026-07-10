@@ -5,7 +5,7 @@ export const Route = createFileRoute('/api/export')({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let body: { run_ids?: string[]; format?: ExportFormat }
+        let body: { run_ids?: string[]; format?: ExportFormat; filename?: string }
         try {
           body = await request.json()
         } catch {
@@ -34,10 +34,11 @@ export const Route = createFileRoute('/api/export')({
 
         try {
           const result = exportConcat(runIds, format)
+          const filename = body.filename ?? result.filename
           return new Response(new Uint8Array(result.buffer), {
             headers: {
               'Content-Type': result.contentType,
-              'Content-Disposition': `attachment; filename="${result.filename}"`,
+              'Content-Disposition': `attachment; filename="${filename}"`,
               'Content-Length': String(result.buffer.length),
             },
           })

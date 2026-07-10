@@ -1,5 +1,5 @@
-import { useState, type ChangeEvent } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import {
   DropdownMenu,
@@ -58,8 +58,8 @@ export function StudioToolbar({
   onOpenShortcuts,
   onImportOpen,
 }: StudioToolbarProps) {
-  const [projectTitle, setProjectTitle] = useState('Untitled project')
-
+  const projectTitle = useStudioStore((s) => s.projectTitle)
+  const setProjectTitle = useStudioStore((s) => s.setProjectTitle)
   const studioPlayMode = useStudioStore((s) => s.studioPlayMode)
   const setStudioPlayMode = useStudioStore((s) => s.setStudioPlayMode)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
@@ -81,11 +81,11 @@ export function StudioToolbar({
             <PanelLeft />
           </Button>
           <div className="min-w-0 flex-1">
-            <input
+            <Input
               type="text"
               value={projectTitle}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setProjectTitle(e.target.value)}
-              className="w-full truncate bg-transparent font-heading text-lg font-semibold tracking-tight outline-none placeholder:text-muted-foreground"
+              onChange={(e) => setProjectTitle(e.target.value)}
+              className="h-auto border-0 bg-transparent px-0 font-heading text-lg font-semibold tracking-tight shadow-none focus-visible:ring-0"
               placeholder="Untitled project"
               aria-label="Project title"
             />

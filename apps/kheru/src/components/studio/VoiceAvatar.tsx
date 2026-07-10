@@ -1,5 +1,7 @@
+import { Avatar, AvatarBadge, AvatarFallback } from '@/components/ui/avatar'
+import { Spinner } from '@/components/ui/spinner'
 import { voiceInitial } from '@/lib/voice-catalog'
-import { voiceAccentTickClass, voiceRingClass } from '@/lib/voice-colors'
+import { voiceRingClass } from '@/lib/voice-colors'
 import type { ParagraphStatus } from '@/stores/studio'
 import { cn } from '@/lib/utils'
 
@@ -14,24 +16,25 @@ export function VoiceAvatar({ voiceId, voiceIdsInUse, status, className }: Voice
   const converted = status === 'done' || status === 'stale'
 
   return (
-    <div className={cn('relative flex size-8 shrink-0 items-center justify-center', className)}>
-      <div
+    <Avatar
+      className={cn('ring-2', voiceRingClass(voiceId, voiceIdsInUse), className)}
+      title={voiceId}
+    >
+      <AvatarFallback
         className={cn(
-          'flex size-8 items-center justify-center rounded-full bg-background text-xs font-semibold ring-2',
-          voiceRingClass(voiceId, voiceIdsInUse),
+          'bg-surface font-heading text-xs font-semibold',
           converted ? 'text-foreground' : 'text-muted-foreground'
         )}
-        title={voiceId}
       >
         {voiceInitial(voiceId)}
-      </div>
-      <span
-        className={cn(
-          'absolute -right-0.5 top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full',
-          voiceAccentTickClass(voiceId, voiceIdsInUse)
-        )}
-        aria-hidden
-      />
-    </div>
+      </AvatarFallback>
+      {status === 'generating' && (
+        <AvatarBadge className="border-surface bg-status-generating motion-safe:animate-pulse">
+          <Spinner />
+        </AvatarBadge>
+      )}
+      {status === 'done' && <AvatarBadge className="bg-status-converted" />}
+      {status === 'error' && <AvatarBadge className="bg-status-error" />}
+    </Avatar>
   )
 }

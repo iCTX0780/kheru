@@ -1,5 +1,6 @@
 import { buildSegmentsFromParagraphs, playableParagraphs } from '@/lib/playback-segments'
 import { downloadBlob, fetchAudioBuffer, runIdFromAudioUrl } from '@/lib/export-download'
+import { exportBaseName } from '@/lib/export-filename'
 import { buildZip } from '@/lib/export-zip'
 import { buildParagraphCues, buildSrt, buildVtt, buildWordCues } from '@/lib/export-subtitles'
 import type { Chapter, Paragraph } from '@/stores/studio'
@@ -59,23 +60,27 @@ async function parseExportError(response: Response): Promise<string> {
 export async function exportFullMix(
   paragraphs: Paragraph[],
   chapter: Chapter,
-  format: AudioExportFormat
+  format: AudioExportFormat,
+  projectTitle: string,
+  chapterTitle: string
 ): Promise<void> {
   const runIds = fullMixRunIds(paragraphs, chapter)
   if (runIds.length === 0) {
     throw new Error('Generate at least one paragraph, or generate chapter first')
   }
 
+  const base = exportBaseName(projectTitle, chapterTitle)
+
   if (runIds.length === 1 && format === 'wav') {
     const buffer = await fetchAudioBuffer(`/api/audio/${runIds[0]}`)
-    downloadBlob(new Blob([buffer], { type: 'audio/wav' }), 'full-mix.wav')
+    downloadBlob(new Blob([buffer], { type: 'audio/wav' }), `${base}.wav`)
     return
   }
 
   const response = await fetch('/api/export', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ run_ids: runIds, format }),
+    body: JSON.stringify({ run_ids: runIds, format, filename: `${base}.${format}` }),
   })
 
   if (!response.ok) {
@@ -84,15 +89,20 @@ export async function exportFullMix(
 
   const buffer = await response.arrayBuffer()
   const mimeType = format === 'mp3' ? 'audio/mpeg' : 'audio/wav'
-  downloadBlob(new Blob([buffer], { type: mimeType }), `full-mix.${format}`)
+  downloadBlob(new Blob([buffer], { type: mimeType }), `${base}.${format}`)
 }
 
-export async function exportParagraphsZip(paragraphs: Paragraph[]): Promise<void> {
+export async function exportParagraphsZip(
+  paragraphs: Paragraph[],
+  projectTitle: string,
+  chapterTitle: string
+): Promise<void> {
   const exportable = playableParagraphs(paragraphs)
   if (exportable.length === 0) {
     throw new Error('Generate at least one paragraph before exporting')
   }
 
+  const base = exportBaseName(projectTitle, chapterTitle)
   const files: { name: string; data: Uint8Array }[] = []
 
   for (let index = 0; index < exportable.length; index++) {
@@ -107,14 +117,16 @@ export async function exportParagraphsZip(paragraphs: Paragraph[]): Promise<void
   }
 
   const zipped = buildZip(files)
-  downloadBlob(new Blob([new Uint8Array(zipped)], { type: 'application/zip' }), 'paragraphs.zip')
+  downloadBlob(new Blob([new Uint8Array(zipped)], { type: 'application/zip' }), `${base}-paragraphs.zip`)
 }
 
 export function exportSubtitles(
   paragraphs: Paragraph[],
   chapter: Chapter,
   format: SubtitleFormat,
-  granularity: SubtitleGranularity = 'paragraph'
+  granularity: SubtitleGranularity,
+  projectTitle: string,
+  chapterTitle: string
 ): void {
   if (!canExportSubtitles(paragraphs, chapter)) {
     throw new Error('Generate audio before exporting subtitles')
@@ -129,7 +141,9 @@ export function exportSubtitles(
 
   const content = format === 'srt' ? buildSrt(cues) : buildVtt(cues)
   const mimeType = format === 'srt' ? 'application/x-subrip' : 'text/vtt'
-  const filename = granularity === 'word' ? `subtitles-words.${format}` : `subtitles.${format}`
+  const base = exportBaseName(projectTitle, chapterTitle)
+  const suffix = granularity === 'word' ? `-subtitles-words` : `-subtitles`
+  const filename = `${base}${suffix}.${format}`
 
   downloadBlob(new Blob([content], { type: mimeType }), filename)
 }

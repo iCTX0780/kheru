@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as KokoroSpikeRouteImport } from './routes/kokoro-spike'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudioProjectIdRouteImport } from './routes/studio.$projectId'
 import { Route as ApiVoicesRouteImport } from './routes/api/voices'
@@ -16,11 +17,18 @@ import { Route as ApiStitchRouteImport } from './routes/api/stitch'
 import { Route as ApiProjectsRouteImport } from './routes/api/projects'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as ApiExportRouteImport } from './routes/api/export'
+import { Route as ApiCapabilitiesRouteImport } from './routes/api/capabilities'
+import { Route as ApiAlignRouteImport } from './routes/api/align'
 import { Route as ApiVoicePreviewSlugRouteImport } from './routes/api/voice-preview.$slug'
 import { Route as ApiProjectsIdRouteImport } from './routes/api/projects.$id'
 import { Route as ApiAudioRunIdRouteImport } from './routes/api/audio.$runId'
 import { Route as ApiAudioRunIdPeaksRouteImport } from './routes/api/audio.$runId.peaks'
 
+const KokoroSpikeRoute = KokoroSpikeRouteImport.update({
+  id: '/kokoro-spike',
+  path: '/kokoro-spike',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -56,6 +64,16 @@ const ApiExportRoute = ApiExportRouteImport.update({
   path: '/api/export',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCapabilitiesRoute = ApiCapabilitiesRouteImport.update({
+  id: '/api/capabilities',
+  path: '/api/capabilities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAlignRoute = ApiAlignRouteImport.update({
+  id: '/api/align',
+  path: '/api/align',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVoicePreviewSlugRoute = ApiVoicePreviewSlugRouteImport.update({
   id: '/api/voice-preview/$slug',
   path: '/api/voice-preview/$slug',
@@ -79,6 +97,9 @@ const ApiAudioRunIdPeaksRoute = ApiAudioRunIdPeaksRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/kokoro-spike': typeof KokoroSpikeRoute
+  '/api/align': typeof ApiAlignRoute
+  '/api/capabilities': typeof ApiCapabilitiesRoute
   '/api/export': typeof ApiExportRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/projects': typeof ApiProjectsRouteWithChildren
@@ -92,6 +113,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/kokoro-spike': typeof KokoroSpikeRoute
+  '/api/align': typeof ApiAlignRoute
+  '/api/capabilities': typeof ApiCapabilitiesRoute
   '/api/export': typeof ApiExportRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/projects': typeof ApiProjectsRouteWithChildren
@@ -106,6 +130,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/kokoro-spike': typeof KokoroSpikeRoute
+  '/api/align': typeof ApiAlignRoute
+  '/api/capabilities': typeof ApiCapabilitiesRoute
   '/api/export': typeof ApiExportRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/projects': typeof ApiProjectsRouteWithChildren
@@ -121,6 +148,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/kokoro-spike'
+    | '/api/align'
+    | '/api/capabilities'
     | '/api/export'
     | '/api/generate'
     | '/api/projects'
@@ -134,6 +164,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/kokoro-spike'
+    | '/api/align'
+    | '/api/capabilities'
     | '/api/export'
     | '/api/generate'
     | '/api/projects'
@@ -147,6 +180,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/kokoro-spike'
+    | '/api/align'
+    | '/api/capabilities'
     | '/api/export'
     | '/api/generate'
     | '/api/projects'
@@ -161,6 +197,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  KokoroSpikeRoute: typeof KokoroSpikeRoute
+  ApiAlignRoute: typeof ApiAlignRoute
+  ApiCapabilitiesRoute: typeof ApiCapabilitiesRoute
   ApiExportRoute: typeof ApiExportRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
   ApiProjectsRoute: typeof ApiProjectsRouteWithChildren
@@ -173,6 +212,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/kokoro-spike': {
+      id: '/kokoro-spike'
+      path: '/kokoro-spike'
+      fullPath: '/kokoro-spike'
+      preLoaderRoute: typeof KokoroSpikeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -220,6 +266,20 @@ declare module '@tanstack/react-router' {
       path: '/api/export'
       fullPath: '/api/export'
       preLoaderRoute: typeof ApiExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/capabilities': {
+      id: '/api/capabilities'
+      path: '/api/capabilities'
+      fullPath: '/api/capabilities'
+      preLoaderRoute: typeof ApiCapabilitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/align': {
+      id: '/api/align'
+      path: '/api/align'
+      fullPath: '/api/align'
+      preLoaderRoute: typeof ApiAlignRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/voice-preview/$slug': {
@@ -279,6 +339,9 @@ const ApiAudioRunIdRouteWithChildren = ApiAudioRunIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  KokoroSpikeRoute: KokoroSpikeRoute,
+  ApiAlignRoute: ApiAlignRoute,
+  ApiCapabilitiesRoute: ApiCapabilitiesRoute,
   ApiExportRoute: ApiExportRoute,
   ApiGenerateRoute: ApiGenerateRoute,
   ApiProjectsRoute: ApiProjectsRouteWithChildren,

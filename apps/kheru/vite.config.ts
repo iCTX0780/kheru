@@ -10,6 +10,12 @@ import { suppressBenignDevErrors } from './vite-plugin-suppress-benign-errors'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
+  worker: {
+    format: 'es',
+  },
+  optimizeDeps: {
+    exclude: ['kokoro-js', '@huggingface/transformers'],
+  },
   plugins: [
     devtools(),
     suppressBenignDevErrors(),

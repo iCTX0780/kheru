@@ -39,7 +39,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             >
               Skip to paragraphs
             </a>
-            <div className="flex min-h-dvh w-full flex-col bg-background text-foreground">{children}</div>
+            <div className="flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground">
+              {children}
+            </div>
             {import.meta.env.DEV && ReactQueryDevtools && (
               <Suspense fallback={null}>
                 <ReactQueryDevtools initialIsOpen={false} />

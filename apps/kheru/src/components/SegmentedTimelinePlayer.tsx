@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { usePlaybackSync } from '@/hooks/use-playback-sync'
 import { useStudioStore } from '@/stores/studio'
 import { playableParagraphs, findSegmentRegionForTime, buildSegmentsFromParagraphs } from '@/lib/playback-segments'
+import { scrollToParagraph } from '@/lib/scroll-to-paragraph'
 import { voiceSegmentClass } from '@/lib/voice-colors'
 import { revokePlayableAudioUrl, toPlayableAudioUrl } from '@/lib/playable-audio-url'
 import { cn } from '@/lib/utils'
@@ -490,7 +491,7 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
   const handleSegmentClick = useCallback(
     (start: number, paragraphId: string) => {
       setSelectedParagraphId(paragraphId)
-      document.getElementById(`paragraph-${paragraphId}`)?.scrollIntoView({ block: 'nearest' })
+      scrollToParagraph(paragraphId)
 
       const state = useStudioStore.getState()
       const { playback: pb, chapter: ch, paragraphs: paras } = state

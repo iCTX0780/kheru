@@ -9,6 +9,10 @@ import {
   type GenerateResponse,
 } from '@/lib/api'
 import { resolveClipDuration } from '@/lib/audio-duration'
+import { revokeManagedBlobUrl } from '@/lib/client-tts/blob-registry'
+import { fetchServerCapabilities } from '@/lib/client-tts/capabilities'
+import { isClientTtsEnabled } from '@/lib/client-tts/config'
+import { clientGenerateParagraph, clientStitchParagraphs } from '@/lib/client-tts/generate'
 import { estimateBulkGenerationMs, formatEta } from '@/lib/generation-estimate'
 import { buildSegmentsFromParagraphs, playableParagraphs, PARAGRAPH_GAP_SECONDS } from '@/lib/playback-segments'
 import { useStudioStore, type Paragraph } from '@/stores/studio'
@@ -24,6 +28,35 @@ async function applyParagraphResult(
   const wordTimings = wordTimingsForTurn(result.words, 0)
   setParagraphDone(paragraph.id, audioUrl, duration, wordTimings.length > 0 ? wordTimings : null)
   return runId
+}
+
+async function applyClientParagraphResult(
+  paragraph: Paragraph,
+  setParagraphDone: ReturnType<typeof useStudioStore.getState>['setParagraphDone'],
+  options: {
+    projectId: string
+    align: boolean
+    onAlignStart?: () => void
+  }
+): Promise<{ blob: Blob; audioUrl: string }> {
+  revokeManagedBlobUrl(paragraph.audioUrl)
+
+  const result = await clientGenerateParagraph(
+    {
+      text: paragraph.text.trim(),
+      voice: paragraph.voice,
+      lengthScale: paragraph.lengthScale,
+    },
+    {
+      projectId: options.projectId,
+      paragraphId: paragraph.id,
+      align: options.align,
+      onAlignStart: options.onAlignStart,
+    }
+  )
+
+  setParagraphDone(paragraph.id, result.audioUrl, result.duration, result.wordTimings)
+  return { blob: result.blob, audioUrl: result.audioUrl }
 }
 
 function buildChapterSegments(paragraphs: Paragraph[]) {
@@ -46,6 +79,7 @@ function buildChapterSegments(paragraphs: Paragraph[]) {
 
 export function useStudioActions() {
   const generate = useGenerate()
+  const clientTts = isClientTtsEnabled()
 
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const chapter = useStudioStore((s) => s.chapter)
@@ -60,6 +94,7 @@ export function useStudioActions() {
   const setParagraphDone = useStudioStore((s) => s.setParagraphDone)
   const setParagraphError = useStudioStore((s) => s.setParagraphError)
   const startGenerationSession = useStudioStore((s) => s.startGenerationSession)
+  const setGenerationParagraphPhase = useStudioStore((s) => s.setGenerationParagraphPhase)
   const advanceGenerationSession = useStudioStore((s) => s.advanceGenerationSession)
   const finishGenerationSession = useStudioStore((s) => s.finishGenerationSession)
   const failGenerationSession = useStudioStore((s) => s.failGenerationSession)
@@ -77,6 +112,9 @@ export function useStudioActions() {
       return
     }
 
+    const capabilities = clientTts ? await fetchServerCapabilities() : null
+    const hybridAlign = Boolean(clientTts && capabilities?.gentle)
+
     setChapterGenerating()
     const estimatedTotalMs = estimateBulkGenerationMs(ready.map((p) => p.text.trim()))
     startGenerationSession(
@@ -90,28 +128,58 @@ export function useStudioActions() {
     }
     resetPlayback()
 
-    const runIds: string[] = []
+    const clientClips: Blob[] = []
 
     try {
+      if (clientTts) {
+        revokeManagedBlobUrl(state.chapter.audioUrl)
+      }
+
       for (const paragraph of ready) {
         setParagraphGenerating(paragraph.id)
+        setGenerationParagraphPhase('synthesizing')
 
-        const result = await generate.mutateAsync([
-          turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale),
-        ])
+        if (clientTts) {
+          const { blob } = await applyClientParagraphResult(paragraph, setParagraphDone, {
+            projectId: state.projectId,
+            align: hybridAlign,
+            onAlignStart: () => setGenerationParagraphPhase('aligning'),
+          })
+          clientClips.push(blob)
+        } else {
+          const result = await generate.mutateAsync([
+            turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale),
+          ])
+          await applyParagraphResult(paragraph, result, setParagraphDone)
+        }
 
-        const runId = await applyParagraphResult(paragraph, result, setParagraphDone)
-        runIds.push(runId)
         advanceGenerationSession(paragraph.id)
       }
 
-      const stitched = await stitchRunIds(runIds)
       const updatedParagraphs = useStudioStore.getState().paragraphs
       const segments = buildChapterSegments(
         ready.map((p) => updatedParagraphs.find((up) => up.id === p.id) ?? p)
       )
 
-      setChapterDone(stitched.audio_url, segments)
+      if (clientTts) {
+        const stitched = await clientStitchParagraphs(clientClips, {
+          projectId: state.projectId,
+          chapterId: state.activeChapterId,
+        })
+        setChapterDone(stitched.audioUrl, segments)
+      } else {
+        const runIds: string[] = []
+        for (const paragraph of ready) {
+          const updated = updatedParagraphs.find((p) => p.id === paragraph.id)
+          const audioUrl = updated?.audioUrl
+          if (!audioUrl) continue
+          const match = audioUrl.match(/\/api\/audio\/([0-9a-f]{8})$/)
+          if (match) runIds.push(match[1])
+        }
+        const stitched = await stitchRunIds(runIds)
+        setChapterDone(stitched.audio_url, segments)
+      }
+
       finishGenerationSession()
 
       setPlayback({
@@ -145,6 +213,7 @@ export function useStudioActions() {
       toast.error(message)
     }
   }, [
+    clientTts,
     generate,
     paragraphs,
     resetPlayback,
@@ -154,6 +223,7 @@ export function useStudioActions() {
     setParagraphDone,
     setParagraphError,
     setParagraphGenerating,
+    setGenerationParagraphPhase,
     startGenerationSession,
     advanceGenerationSession,
     finishGenerationSession,
@@ -179,13 +249,25 @@ export function useStudioActions() {
       return
     }
 
+    const capabilities = clientTts ? await fetchServerCapabilities() : null
+    const hybridAlign = Boolean(clientTts && capabilities?.gentle)
+
     startGenerationSession([paragraph.id])
     setParagraphGenerating(paragraph.id)
+    setGenerationParagraphPhase('synthesizing')
     try {
-      const result = await generate.mutateAsync([
-        turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale),
-      ])
-      await applyParagraphResult(paragraph, result, setParagraphDone)
+      if (clientTts) {
+        await applyClientParagraphResult(paragraph, setParagraphDone, {
+          projectId: state.projectId,
+          align: hybridAlign,
+          onAlignStart: () => setGenerationParagraphPhase('aligning'),
+        })
+      } else {
+        const result = await generate.mutateAsync([
+          turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale),
+        ])
+        await applyParagraphResult(paragraph, result, setParagraphDone)
+      }
       advanceGenerationSession(paragraph.id)
       finishGenerationSession()
       toast.success('Paragraph generated')
@@ -196,12 +278,14 @@ export function useStudioActions() {
       toast.error(message)
     }
   }, [
+    clientTts,
     generate,
     paragraphs,
     selectedParagraphId,
     setParagraphDone,
     setParagraphError,
     setParagraphGenerating,
+    setGenerationParagraphPhase,
     startGenerationSession,
     advanceGenerationSession,
     finishGenerationSession,

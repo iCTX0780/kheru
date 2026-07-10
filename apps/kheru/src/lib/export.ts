@@ -1,8 +1,10 @@
-import { buildSegmentsFromParagraphs, playableParagraphs } from '@/lib/playback-segments'
+import { buildSegmentsFromParagraphs, playableParagraphs, PARAGRAPH_GAP_SECONDS } from '@/lib/playback-segments'
 import { downloadBlob, fetchAudioBuffer, runIdFromAudioUrl } from '@/lib/export-download'
 import { exportBaseName } from '@/lib/export-filename'
 import { buildZip } from '@/lib/export-zip'
 import { buildParagraphCues, buildSrt, buildVtt, buildWordCues } from '@/lib/export-subtitles'
+import { isClientTtsEnabled } from '@/lib/client-tts/config'
+import { concatWavBlobs } from '@/lib/client-tts/concat-blobs'
 import type { Chapter, Paragraph } from '@/stores/studio'
 
 export type SubtitleFormat = 'srt' | 'vtt'
@@ -23,19 +25,30 @@ function subtitleParagraphs(paragraphs: Paragraph[], chapter: Chapter) {
     : playableParagraphs(paragraphs)
 }
 
+function isBlobAudioUrl(url: string): boolean {
+  return url.startsWith('blob:')
+}
+
 /** Run ids for a single concatenated export, preferring an existing chapter mix. */
 export function fullMixRunIds(paragraphs: Paragraph[], chapter: Chapter): string[] {
-  if (chapter.status === 'done' && chapter.audioUrl) {
+  if (chapter.status === 'done' && chapter.audioUrl && !isBlobAudioUrl(chapter.audioUrl)) {
     const runId = runIdFromAudioUrl(chapter.audioUrl)
     if (runId) return [runId]
   }
 
   return playableParagraphs(paragraphs)
-    .map((paragraph) => (paragraph.audioUrl ? runIdFromAudioUrl(paragraph.audioUrl) : null))
+    .map((paragraph) => {
+      if (!paragraph.audioUrl || isBlobAudioUrl(paragraph.audioUrl)) return null
+      return runIdFromAudioUrl(paragraph.audioUrl)
+    })
     .filter((runId): runId is string => runId !== null)
 }
 
 export function canExportFullMix(paragraphs: Paragraph[], chapter: Chapter): boolean {
+  if (isClientTtsEnabled()) {
+    if (chapter.status === 'done' && chapter.audioUrl) return true
+    return playableParagraphs(paragraphs).some((p) => p.audioUrl)
+  }
   return fullMixRunIds(paragraphs, chapter).length > 0
 }
 
@@ -57,6 +70,37 @@ async function parseExportError(response: Response): Promise<string> {
   return response.statusText || 'Export failed'
 }
 
+async function exportFullMixClient(
+  paragraphs: Paragraph[],
+  chapter: Chapter,
+  projectTitle: string,
+  chapterTitle: string
+): Promise<void> {
+  const base = exportBaseName(projectTitle, chapterTitle)
+
+  if (chapter.status === 'done' && chapter.audioUrl) {
+    const buffer = await fetchAudioBuffer(chapter.audioUrl)
+    downloadBlob(new Blob([buffer], { type: 'audio/wav' }), `${base}.wav`)
+    return
+  }
+
+  const exportable = playableParagraphs(paragraphs)
+  const blobs: Blob[] = []
+  for (const paragraph of exportable) {
+    if (!paragraph.audioUrl) continue
+    const buffer = await fetchAudioBuffer(paragraph.audioUrl)
+    blobs.push(new Blob([buffer], { type: 'audio/wav' }))
+  }
+
+  if (blobs.length === 0) {
+    throw new Error('Generate at least one paragraph, or generate chapter first')
+  }
+
+  const gaps = Array.from({ length: Math.max(blobs.length - 1, 0) }, () => PARAGRAPH_GAP_SECONDS)
+  const stitched = blobs.length === 1 ? blobs[0] : await concatWavBlobs(blobs, gaps)
+  downloadBlob(stitched, `${base}.wav`)
+}
+
 export async function exportFullMix(
   paragraphs: Paragraph[],
   chapter: Chapter,
@@ -64,6 +108,14 @@ export async function exportFullMix(
   projectTitle: string,
   chapterTitle: string
 ): Promise<void> {
+  if (isClientTtsEnabled()) {
+    if (format === 'mp3') {
+      throw new Error('MP3 export is not available in offline client mode — use WAV')
+    }
+    await exportFullMixClient(paragraphs, chapter, projectTitle, chapterTitle)
+    return
+  }
+
   const runIds = fullMixRunIds(paragraphs, chapter)
   if (runIds.length === 0) {
     throw new Error('Generate at least one paragraph, or generate chapter first')

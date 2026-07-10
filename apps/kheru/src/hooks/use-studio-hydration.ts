@@ -9,7 +9,8 @@ import {
   saveProjectToIDB,
   setMetaValue,
 } from '@/lib/project-db'
-import { validateStudioAudio } from '@/lib/validate-audio'
+import { isClientTtsEnabled } from '@/lib/client-tts/config'
+import { restoreClientAudioFromOpfs, validateStudioAudio } from '@/lib/validate-audio'
 import { DEFAULT_VOICE_ID } from '@/lib/voice-catalog'
 import { scheduleProjectSave } from '@/lib/project-sync'
 import { toast } from 'sonner'
@@ -53,7 +54,21 @@ export function useStudioHydration(projectId?: string): boolean {
         loadProject(project)
         setProjectId(project.id)
 
-        const { paragraphs, chapter } = useStudioStore.getState()
+        let { paragraphs, chapter, projectId: storeProjectId, activeChapterId } =
+          useStudioStore.getState()
+
+        if (isClientTtsEnabled()) {
+          const restored = await restoreClientAudioFromOpfs(
+            storeProjectId,
+            activeChapterId,
+            paragraphs,
+            chapter
+          )
+          paragraphs = restored.paragraphs
+          chapter = restored.chapter
+          useStudioStore.setState({ paragraphs, chapter })
+        }
+
         const validation = await validateStudioAudio(paragraphs, chapter)
         if (validation.invalidParagraphIds.length > 0 || validation.chapterMissing) {
           const store = useStudioStore.getState()
@@ -63,7 +78,11 @@ export function useStudioHydration(projectId?: string): boolean {
           if (validation.chapterMissing) {
             store.invalidateChapterAudio()
           }
-          toast.message('Some audio files are missing on the server — re-generate to restore.')
+          toast.message(
+            isClientTtsEnabled()
+              ? 'Some audio is missing after reload — re-generate to restore (OPFS restores when available).'
+              : 'Some audio files are missing on the server — re-generate to restore.'
+          )
         }
       } catch (err) {
         console.warn('Studio hydration failed:', err)

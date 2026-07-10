@@ -7,6 +7,7 @@ import { useStudioHydration, useProjectAutoSave } from '@/hooks/use-studio-hydra
 import { useStudioActions } from '@/hooks/use-studio-actions'
 import { useStudioStore } from '@/stores/studio'
 import { useVoices } from '@/lib/api'
+import { fetchServerCapabilities } from '@/lib/client-tts/capabilities'
 import { DEFAULT_VOICE_ID } from '@/lib/voice-catalog'
 import { playableParagraphs } from '@/lib/playback-segments'
 import { getProjectFromIDB } from '@/lib/project-db'
@@ -57,6 +58,11 @@ function StudioPage() {
     const preferred = ids.includes(DEFAULT_VOICE_ID) ? DEFAULT_VOICE_ID : ids[0]
     setVoices(ids, preferred)
   }, [hydrated, voiceList, setVoices])
+
+  useEffect(() => {
+    if (!hydrated) return
+    void fetchServerCapabilities()
+  }, [hydrated])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { WordTiming } from '@/lib/playback-words'
+import { revokeManagedBlobUrl } from '@/lib/client-tts/blob-registry'
 import type { ImportBlock } from '@/lib/parse-script'
 import type { ProjectChapter } from '@/lib/project-db'
 import { createDefaultChapter, syncChapterSnapshot } from '@/lib/project-db'
@@ -63,6 +64,8 @@ export interface GenerationSession {
   completedIds: string[]
   startedAt: number | null
   estimatedTotalMs: number | null
+  /** Hybrid client TTS: synthesizing vs Gentle align step for current paragraph */
+  paragraphPhase: 'synthesizing' | 'aligning' | null
   failedId?: string
   error?: string
 }
@@ -74,6 +77,7 @@ const initialGenerationSession: GenerationSession = {
   completedIds: [],
   startedAt: null,
   estimatedTotalMs: null,
+  paragraphPhase: null,
 }
 
 export interface StudioStore {
@@ -128,6 +132,7 @@ export interface StudioStore {
   setPreviewPlaybackRate: (rate: number) => void
 
   startGenerationSession: (paragraphIds: string[], estimatedTotalMs?: number) => void
+  setGenerationParagraphPhase: (phase: 'synthesizing' | 'aligning' | null) => void
   advanceGenerationSession: (completedId: string) => void
   finishGenerationSession: () => void
   failGenerationSession: (failedId: string | undefined, error: string) => void
@@ -409,6 +414,8 @@ export const useStudioStore = create<StudioStore>()((set) => ({
 
   removeParagraph: (id) =>
     set((state) => {
+      const removed = state.paragraphs.find((p) => p.id === id)
+      revokeManagedBlobUrl(removed?.audioUrl)
       const paragraphs = state.paragraphs.filter((p) => p.id !== id)
       const nextParagraphs =
         paragraphs.length > 0 ? paragraphs : state.voices[0] ? [createParagraph(state.voices[0])] : []
@@ -502,17 +509,22 @@ export const useStudioStore = create<StudioStore>()((set) => ({
     ),
 
   invalidateParagraphAudio: (id) =>
-    set((state) => ({
-      paragraphs: state.paragraphs.map((p) =>
-        p.id === id
-          ? { ...p, status: 'stale', audioUrl: null, duration: null, wordTimings: null }
-          : p
-      ),
-    })),
+    set((state) => {
+      const paragraph = state.paragraphs.find((p) => p.id === id)
+      revokeManagedBlobUrl(paragraph?.audioUrl)
+      return {
+        paragraphs: state.paragraphs.map((p) =>
+          p.id === id
+            ? { ...p, status: 'stale', audioUrl: null, duration: null, wordTimings: null }
+            : p
+        ),
+      }
+    }),
 
   invalidateChapterAudio: () =>
-    set((state) =>
-      withSyncedChapters(state, {
+    set((state) => {
+      revokeManagedBlobUrl(state.chapter.audioUrl)
+      return withSyncedChapters(state, {
         chapter: {
           ...state.chapter,
           status: state.chapter.status === 'idle' ? 'idle' : 'stale',
@@ -520,7 +532,7 @@ export const useStudioStore = create<StudioStore>()((set) => ({
           segments: [],
         },
       })
-    ),
+    }),
 
   setPlayback: (updates) =>
     set((state) => ({
@@ -538,8 +550,17 @@ export const useStudioStore = create<StudioStore>()((set) => ({
         completedIds: [],
         startedAt: Date.now(),
         estimatedTotalMs: estimatedTotalMs ?? null,
+        paragraphPhase: 'synthesizing',
       },
     }),
+
+  setGenerationParagraphPhase: (phase) =>
+    set((state) => ({
+      generationSession: {
+        ...state.generationSession,
+        paragraphPhase: phase,
+      },
+    })),
 
   advanceGenerationSession: (completedId) =>
     set((state) => {
@@ -552,6 +573,7 @@ export const useStudioStore = create<StudioStore>()((set) => ({
           ...session,
           completedIds,
           currentIndex,
+          paragraphPhase: 'synthesizing',
         },
       }
     }),

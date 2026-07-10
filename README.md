@@ -89,9 +89,22 @@ make voice-samples     # → apps/kheru/public/voice-samples/ (legacy static exp
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/voices` | Curated voice list |
-| `POST` | `/api/generate` | `{ conversation: Turn[] }` → `{ run_id, audio_url, segments, words }` |
+| `GET` | `/api/capabilities` | `{ gentle, client_tts_build }` — alignment and build flags |
+| `POST` | `/api/generate` | `{ conversation: Turn[] }` → `{ run_id, audio_url, segments, words }` (hosted mode) |
+| `POST` | `/api/align` | Multipart `audio` + `transcript` → `{ words }` (hybrid client TTS + Gentle) |
 | `GET` | `/api/audio/:run_id` | Stream WAV (8-char hex id) |
 | `POST` | `/api/export` | Export chapter or paragraphs (WAV, MP3, SRT, ZIP) |
+| `POST` | `/api/stitch` | Concat paragraph run ids into chapter mix |
+
+### TTS modes
+
+| Mode | Env | Best for |
+|------|-----|----------|
+| **Hosted** | `VITE_CLIENT_TTS=0`, `GENTLE_URL` set | Production, MP3 export, no browser model download |
+| **Hybrid** | `VITE_CLIENT_TTS=1`, `GENTLE_URL` set | Local rehearsal with client synth + Gentle karaoke |
+| **Offline** | `VITE_CLIENT_TTS=1`, no Gentle | Fully local synth; estimated highlights only |
+
+See [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md) for client TTS details.
 
 ## Environment
 
@@ -101,6 +114,7 @@ make voice-samples     # → apps/kheru/public/voice-samples/ (legacy static exp
 | `DATA_DIR` | `apps/kheru/data` | Projects, audio, Kokoro cache |
 | `TRANSFORMERS_CACHE` | `data/transformers-cache` | Kokoro model cache |
 | `GENTLE_URL` | — | Gentle aligner base URL (e.g. `http://127.0.0.1:8765`) |
+| `VITE_CLIENT_TTS` | `0` | `1` = browser Kokoro worker; use with `/api/align` for hybrid karaoke |
 
 ## Legacy
 

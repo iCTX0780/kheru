@@ -54,22 +54,23 @@ make test         # vitest
 
 Forced alignment gives accurate word-by-word highlights. Without Gentle, highlights are estimated from clip duration.
 
-**Local dev** — run Gentle in a separate container:
+**Local dev** — start Gentle via Compose (named `kheru-gentle` in OrbStack/Docker), then run the app on the host:
 
 ```bash
-docker run --rm -p 8765:8765 lowerquality/gentle
-GENTLE_URL=http://127.0.0.1:8765 make dev
+make gentle-up                              # kheru-gentle on :8765, waits for healthcheck
+GENTLE_URL=http://127.0.0.1:8765 make dev   # or: make dev-gentle (starts Gentle + dev in one step)
+make gentle-down                            # stop aligner when done
 ```
 
-**Docker Compose** — Gentle starts first, Kheru waits until it is healthy:
+**Full stack in Docker** — Gentle starts first, Kheru waits until it is healthy:
 
 ```bash
-make docker-up    # build, start detached, print compose ps (Gentle :8765, app :3000)
+make docker-up    # kheru-gentle :8765 + kheru-app :3000
 make docker-logs  # follow logs
 make docker-down
 ```
 
-Containers are named `kheru-<service>-1` (e.g. `kheru-app-1`, `kheru-gentle-1`).
+Compose containers are named `kheru-gentle` and `kheru-app`.
 
 Persists generated audio and the Kokoro model cache in `apps/kheru/data/`.
 

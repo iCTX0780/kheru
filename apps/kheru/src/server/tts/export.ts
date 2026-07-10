@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, unlinkSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync, unlinkSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { concatWavs } from './concat'
 import { audioPath, DEFAULT_GAP_SECONDS, TARGET_SAMPLE_RATE, TEMP_DIR } from './paths'
@@ -78,4 +78,33 @@ export function exportConcat(
       /* ignore */
     }
   }
+}
+
+export function stitchRunIds(
+  runIds: string[]
+): { run_id: string; audio_url: string } {
+  if (runIds.length === 0) {
+    throw new Error('No audio clips to stitch')
+  }
+
+  for (const runId of runIds) {
+    validateRunId(runId)
+    if (!existsSync(audioPath(runId))) {
+      throw new Error(`Audio not found: ${runId}`)
+    }
+  }
+
+  const runId = randomBytes(4).toString('hex')
+  const outPath = audioPath(runId)
+
+  if (runIds.length === 1) {
+    copyFileSync(audioPath(runIds[0]), outPath)
+    return { run_id: runId, audio_url: `/api/audio/${runId}` }
+  }
+
+  const clips = runIds.map((id) => audioPath(id))
+  const gaps = Array.from({ length: runIds.length - 1 }, () => DEFAULT_GAP_SECONDS)
+  concatWavs(clips, outPath, gaps, TARGET_SAMPLE_RATE)
+
+  return { run_id: runId, audio_url: `/api/audio/${runId}` }
 }

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiVoicesRouteImport } from './routes/api/voices'
+import { Route as ApiStitchRouteImport } from './routes/api/stitch'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as ApiExportRouteImport } from './routes/api/export'
 import { Route as ApiVoicePreviewSlugRouteImport } from './routes/api/voice-preview.$slug'
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiVoicesRoute = ApiVoicesRouteImport.update({
   id: '/api/voices',
   path: '/api/voices',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStitchRoute = ApiStitchRouteImport.update({
+  id: '/api/stitch',
+  path: '/api/stitch',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateRoute = ApiGenerateRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/export': typeof ApiExportRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/stitch': typeof ApiStitchRoute
   '/api/voices': typeof ApiVoicesRoute
   '/api/audio/$runId': typeof ApiAudioRunIdRoute
   '/api/voice-preview/$slug': typeof ApiVoicePreviewSlugRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/export': typeof ApiExportRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/stitch': typeof ApiStitchRoute
   '/api/voices': typeof ApiVoicesRoute
   '/api/audio/$runId': typeof ApiAudioRunIdRoute
   '/api/voice-preview/$slug': typeof ApiVoicePreviewSlugRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/export': typeof ApiExportRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/stitch': typeof ApiStitchRoute
   '/api/voices': typeof ApiVoicesRoute
   '/api/audio/$runId': typeof ApiAudioRunIdRoute
   '/api/voice-preview/$slug': typeof ApiVoicePreviewSlugRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/export'
     | '/api/generate'
+    | '/api/stitch'
     | '/api/voices'
     | '/api/audio/$runId'
     | '/api/voice-preview/$slug'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/export'
     | '/api/generate'
+    | '/api/stitch'
     | '/api/voices'
     | '/api/audio/$runId'
     | '/api/voice-preview/$slug'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/export'
     | '/api/generate'
+    | '/api/stitch'
     | '/api/voices'
     | '/api/audio/$runId'
     | '/api/voice-preview/$slug'
@@ -103,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiExportRoute: typeof ApiExportRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
+  ApiStitchRoute: typeof ApiStitchRoute
   ApiVoicesRoute: typeof ApiVoicesRoute
   ApiAudioRunIdRoute: typeof ApiAudioRunIdRoute
   ApiVoicePreviewSlugRoute: typeof ApiVoicePreviewSlugRoute
@@ -122,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/api/voices'
       fullPath: '/api/voices'
       preLoaderRoute: typeof ApiVoicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stitch': {
+      id: '/api/stitch'
+      path: '/api/stitch'
+      fullPath: '/api/stitch'
+      preLoaderRoute: typeof ApiStitchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate': {
@@ -159,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiExportRoute: ApiExportRoute,
   ApiGenerateRoute: ApiGenerateRoute,
+  ApiStitchRoute: ApiStitchRoute,
   ApiVoicesRoute: ApiVoicesRoute,
   ApiAudioRunIdRoute: ApiAudioRunIdRoute,
   ApiVoicePreviewSlugRoute: ApiVoicePreviewSlugRoute,

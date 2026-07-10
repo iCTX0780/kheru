@@ -1,9 +1,47 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
-import { turnFromParagraph, useGenerate, wordTimingsForTurn, segmentDurationFromResult } from '@/lib/api'
+import {
+  turnFromParagraph,
+  useGenerate,
+  wordTimingsForTurn,
+  segmentDurationFromResult,
+  stitchRunIds,
+  type GenerateResponse,
+} from '@/lib/api'
 import { resolveClipDuration } from '@/lib/audio-duration'
-import { buildSegmentsFromParagraphs, playableParagraphs } from '@/lib/playback-segments'
-import { useStudioStore } from '@/stores/studio'
+import { buildSegmentsFromParagraphs, playableParagraphs, PARAGRAPH_GAP_SECONDS } from '@/lib/playback-segments'
+import { useStudioStore, type Paragraph } from '@/stores/studio'
+
+async function applyParagraphResult(
+  paragraph: Paragraph,
+  result: GenerateResponse,
+  setParagraphDone: ReturnType<typeof useStudioStore.getState>['setParagraphDone']
+): Promise<string> {
+  const audioUrl = result.clips?.[0]?.audio_url ?? result.audio_url
+  const runId = result.clips?.[0]?.run_id ?? result.run_id
+  const duration = await resolveClipDuration(audioUrl, segmentDurationFromResult(result, 0))
+  const wordTimings = wordTimingsForTurn(result.words, 0)
+  setParagraphDone(paragraph.id, audioUrl, duration, wordTimings.length > 0 ? wordTimings : null)
+  return runId
+}
+
+function buildChapterSegments(paragraphs: Paragraph[]) {
+  let offset = 0
+  return paragraphs.map((p, index) => {
+    const duration = p.duration ?? 0
+    const segment = {
+      paragraphId: p.id,
+      start: offset,
+      end: offset + duration,
+      label: p.text.trim().slice(0, 40) + (p.text.trim().length > 40 ? '…' : ''),
+    }
+    offset += duration
+    if (index < paragraphs.length - 1) {
+      offset += PARAGRAPH_GAP_SECONDS
+    }
+    return segment
+  })
+}
 
 export function useStudioActions() {
   const generate = useGenerate()
@@ -20,8 +58,10 @@ export function useStudioActions() {
   const setParagraphGenerating = useStudioStore((s) => s.setParagraphGenerating)
   const setParagraphDone = useStudioStore((s) => s.setParagraphDone)
   const setParagraphError = useStudioStore((s) => s.setParagraphError)
-
-  const setParagraphsGenerating = useStudioStore((s) => s.setParagraphsGenerating)
+  const startGenerationSession = useStudioStore((s) => s.startGenerationSession)
+  const advanceGenerationSession = useStudioStore((s) => s.advanceGenerationSession)
+  const finishGenerationSession = useStudioStore((s) => s.finishGenerationSession)
+  const failGenerationSession = useStudioStore((s) => s.failGenerationSession)
 
   const handleGenerateChapter = useCallback(async () => {
     const ready = paragraphs.filter((p) => p.text.trim())
@@ -31,41 +71,32 @@ export function useStudioActions() {
     }
 
     setChapterGenerating()
-    setParagraphsGenerating(ready.map((p) => p.id))
+    startGenerationSession(ready.map((p) => p.id))
     resetPlayback()
 
-    try {
-      const conversation = ready.map((p) =>
-        turnFromParagraph(p.id, p.text.trim(), p.voice, p.lengthScale)
-      )
-      const result = await generate.mutateAsync(conversation)
-      const segments = result.segments.map((seg) => {
-        const paragraph = ready[seg.index]
-        return {
-          paragraphId: paragraph.id,
-          start: seg.start,
-          end: seg.end,
-          label: paragraph.text.trim().slice(0, 40) + (paragraph.text.length > 40 ? '…' : ''),
-        }
-      })
-      setChapterDone(result.audio_url, segments)
+    const runIds: string[] = []
 
-      for (let index = 0; index < ready.length; index++) {
-        const paragraph = ready[index]
-        const clip = result.clips?.find((c) => c.index === index)
-        const audioUrl = clip?.audio_url ?? result.audio_url
-        const duration = await resolveClipDuration(
-          audioUrl,
-          segmentDurationFromResult(result, index)
-        )
-        const wordTimings = wordTimingsForTurn(result.words, index)
-        setParagraphDone(
-          paragraph.id,
-          audioUrl,
-          duration,
-          wordTimings.length > 0 ? wordTimings : null
-        )
+    try {
+      for (const paragraph of ready) {
+        setParagraphGenerating(paragraph.id)
+
+        const result = await generate.mutateAsync([
+          turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale),
+        ])
+
+        const runId = await applyParagraphResult(paragraph, result, setParagraphDone)
+        runIds.push(runId)
+        advanceGenerationSession(paragraph.id)
       }
+
+      const stitched = await stitchRunIds(runIds)
+      const updatedParagraphs = useStudioStore.getState().paragraphs
+      const segments = buildChapterSegments(
+        ready.map((p) => updatedParagraphs.find((up) => up.id === p.id) ?? p)
+      )
+
+      setChapterDone(stitched.audio_url, segments)
+      finishGenerationSession()
 
       setPlayback({
         mode: 'chapter',
@@ -84,10 +115,17 @@ export function useStudioActions() {
       )
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Generation failed'
-      setChapterError(message)
-      for (const paragraph of ready) {
-        setParagraphError(paragraph.id, message)
+      const session = useStudioStore.getState().generationSession
+      const failedDuringParagraph = session.completedIds.length < ready.length
+      const failedId = failedDuringParagraph
+        ? session.paragraphIds[session.currentIndex]
+        : undefined
+
+      if (failedId) {
+        setParagraphError(failedId, message)
       }
+      setChapterError(message)
+      failGenerationSession(failedId, message)
       toast.error(message)
     }
   }, [
@@ -99,7 +137,11 @@ export function useStudioActions() {
     setChapterGenerating,
     setParagraphDone,
     setParagraphError,
-    setParagraphsGenerating,
+    setParagraphGenerating,
+    startGenerationSession,
+    advanceGenerationSession,
+    finishGenerationSession,
+    failGenerationSession,
     setPlayback,
   ])
 
@@ -115,30 +157,34 @@ export function useStudioActions() {
       return
     }
 
+    startGenerationSession([paragraph.id])
     setParagraphGenerating(paragraph.id)
     try {
       const result = await generate.mutateAsync([
         turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale),
       ])
-      const audioUrl = result.clips?.[0]?.audio_url ?? result.audio_url
-      const duration = await resolveClipDuration(
-        audioUrl,
-        segmentDurationFromResult(result, 0)
-      )
-      const wordTimings = wordTimingsForTurn(result.words, 0)
-      setParagraphDone(
-        paragraph.id,
-        audioUrl,
-        duration,
-        wordTimings.length > 0 ? wordTimings : null
-      )
+      await applyParagraphResult(paragraph, result, setParagraphDone)
+      advanceGenerationSession(paragraph.id)
+      finishGenerationSession()
       toast.success('Paragraph generated')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Generation failed'
       setParagraphError(paragraph.id, message)
+      failGenerationSession(paragraph.id, message)
       toast.error(message)
     }
-  }, [generate, paragraphs, selectedParagraphId, setParagraphDone, setParagraphError, setParagraphGenerating])
+  }, [
+    generate,
+    paragraphs,
+    selectedParagraphId,
+    setParagraphDone,
+    setParagraphError,
+    setParagraphGenerating,
+    startGenerationSession,
+    advanceGenerationSession,
+    finishGenerationSession,
+    failGenerationSession,
+  ])
 
   const handlePlayParagraph = useCallback(
     (id: string, modeOverride?: 'selection' | 'until-end') => {

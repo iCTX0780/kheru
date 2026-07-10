@@ -14,11 +14,14 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile'
 import { parseImportScript } from '@/lib/parse-script'
 import { useStudioStore } from '@/stores/studio'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 import { NavRail } from '@/components/studio/NavRail'
 import { ScriptCanvas } from '@/components/studio/ScriptCanvas'
 import { ContextualInspector } from '@/components/studio/ContextualInspector'
 import { StudioToolbar } from '@/components/studio/StudioToolbar'
 import { SegmentedTimelinePlayer } from '@/components/SegmentedTimelinePlayer'
+import { GenerationProgressPanel } from '@/components/studio/GenerationProgressPanel'
 import { cn } from '@/lib/utils'
 import type { VoiceInfo } from '@/lib/api'
 
@@ -27,6 +30,7 @@ interface StudioShellProps {
   voices: VoiceInfo[]
   isLoadingVoices: boolean
   chapterGenerating: boolean
+  chapterError?: string
   hasText: boolean
   canPlay: boolean
   isPlaying: boolean
@@ -44,6 +48,7 @@ export function StudioShell({
   voices,
   isLoadingVoices,
   chapterGenerating,
+  chapterError,
   hasText,
   canPlay,
   isPlaying,
@@ -92,7 +97,7 @@ export function StudioShell({
 
   return (
     <TooltipProvider>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-full min-h-0 flex-1 flex-col">
         <StudioToolbar
           hydrated={hydrated}
           isLoadingVoices={isLoadingVoices}
@@ -110,6 +115,15 @@ export function StudioShell({
           onOpenShortcuts={onOpenShortcuts}
           onImportOpen={() => setImportOpen(true)}
         />
+
+        {chapterError && (
+          <div className="shrink-0 border-b border-destructive/20 bg-destructive/10 px-4 py-2">
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{chapterError}</AlertDescription>
+            </Alert>
+          </div>
+        )}
 
         {isMobile ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden pb-28">
@@ -149,6 +163,7 @@ export function StudioShell({
           </div>
         )}
 
+        <GenerationProgressPanel />
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
           <SegmentedTimelinePlayer onPlayAll={onPlayAll} />
         </div>
@@ -158,8 +173,9 @@ export function StudioShell({
             <DialogHeader className="shrink-0 gap-2 border-b border-border px-4 py-4">
               <DialogTitle>Import script</DialogTitle>
               <DialogDescription>
-                Paste a script with speaker labels (INTERVIEWER:, YOU:, etc.). Wrapped lines merge
-                into the previous turn. INTERVIEWER → Heart, YOU → Michael by default.
+                Paste a script with speaker labels (HEADING:, INTERVIEWER:, YOU:, etc.). Wrapped
+                lines merge into the previous turn. HEADING/HEADLINE → Fenrir, INTERVIEWER → Heart,
+                YOU → Michael by default.
               </DialogDescription>
             </DialogHeader>
             <div className="min-h-0 flex-1 overflow-hidden px-4 py-3">

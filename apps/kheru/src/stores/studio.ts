@@ -14,6 +14,8 @@ export interface Paragraph {
   text: string
   voice: string
   lengthScale: number
+  /** Speaker label from imported script (e.g. INTERVIEWER, YOU). */
+  speaker?: string
   audioUrl: string | null
   duration: number | null
   /** Clip-relative word timings from Gentle alignment (when available). */
@@ -53,6 +55,22 @@ export interface PlaybackState {
   previewPlaybackRate: number
 }
 
+export interface GenerationSession {
+  active: boolean
+  paragraphIds: string[]
+  currentIndex: number
+  completedIds: string[]
+  failedId?: string
+  error?: string
+}
+
+const initialGenerationSession: GenerationSession = {
+  active: false,
+  paragraphIds: [],
+  currentIndex: 0,
+  completedIds: [],
+}
+
 export interface StudioStore {
   paragraphs: Paragraph[]
   voices: string[]
@@ -60,10 +78,15 @@ export interface StudioStore {
   playback: PlaybackState
   selectedParagraphId: string | null
   studioPlayMode: StudioPlayMode
+  generationSession: GenerationSession
+  projectTitle: string
+  chapterTitle: string
 
   setVoices: (voices: string[], defaultVoice?: string) => void
   setSelectedParagraphId: (id: string | null) => void
   setStudioPlayMode: (mode: StudioPlayMode) => void
+  setProjectTitle: (title: string) => void
+  setChapterTitle: (title: string) => void
   addParagraph: (afterId?: string) => void
   importParagraphs: (blocks: ImportBlock[]) => void
   updateParagraph: (id: string, updates: Partial<Pick<Paragraph, 'text' | 'voice' | 'lengthScale'>>) => void
@@ -86,6 +109,11 @@ export interface StudioStore {
   setPlayback: (updates: Partial<PlaybackState>) => void
   resetPlayback: () => void
   setPreviewPlaybackRate: (rate: number) => void
+
+  startGenerationSession: (paragraphIds: string[]) => void
+  advanceGenerationSession: (completedId: string) => void
+  finishGenerationSession: () => void
+  failGenerationSession: (failedId: string | undefined, error: string) => void
 }
 
 function createParagraph(voice: string): Paragraph {
@@ -141,6 +169,8 @@ const initialPlayback: PlaybackState = {
 interface PersistedStudio {
   paragraphs: Paragraph[]
   chapter: Chapter
+  projectTitle?: string
+  chapterTitle?: string
 }
 
 function normalizeParagraph(paragraph: Paragraph): Paragraph {
@@ -170,10 +200,17 @@ export const useStudioStore = create<StudioStore>()(
   playback: initialPlayback,
   selectedParagraphId: null,
   studioPlayMode: 'until-end',
+  generationSession: initialGenerationSession,
+  projectTitle: 'Untitled project',
+  chapterTitle: 'Chapter 1',
 
   setSelectedParagraphId: (id) => set({ selectedParagraphId: id }),
 
   setStudioPlayMode: (mode) => set({ studioPlayMode: mode }),
+
+  setProjectTitle: (title) => set({ projectTitle: title }),
+
+  setChapterTitle: (title) => set({ chapterTitle: title }),
 
   setPreviewPlaybackRate: (rate) =>
     set((state) => ({
@@ -234,6 +271,7 @@ export const useStudioStore = create<StudioStore>()(
           return {
             ...createParagraph(voice),
             text: block.text.trim(),
+            speaker: block.speaker,
             lengthScale: lengthScaleForSpeaker(block.speaker, voiceDefault),
           }
         })
@@ -364,6 +402,44 @@ export const useStudioStore = create<StudioStore>()(
     })),
 
   resetPlayback: () => set({ playback: initialPlayback }),
+
+  startGenerationSession: (paragraphIds) =>
+    set({
+      generationSession: {
+        active: true,
+        paragraphIds,
+        currentIndex: 0,
+        completedIds: [],
+      },
+    }),
+
+  advanceGenerationSession: (completedId) =>
+    set((state) => {
+      const session = state.generationSession
+      if (!session.active) return state
+      const completedIds = [...session.completedIds, completedId]
+      const currentIndex = Math.min(session.currentIndex + 1, session.paragraphIds.length)
+      return {
+        generationSession: {
+          ...session,
+          completedIds,
+          currentIndex,
+        },
+      }
+    }),
+
+  finishGenerationSession: () =>
+    set({ generationSession: initialGenerationSession }),
+
+  failGenerationSession: (failedId, error) =>
+    set((state) => ({
+      generationSession: {
+        ...state.generationSession,
+        active: false,
+        failedId,
+        error,
+      },
+    })),
     }),
     {
       name: 'kheru-studio',
@@ -379,6 +455,8 @@ export const useStudioStore = create<StudioStore>()(
       partialize: (state): PersistedStudio => ({
         paragraphs: state.paragraphs,
         chapter: state.chapter,
+        projectTitle: state.projectTitle,
+        chapterTitle: state.chapterTitle,
       }),
       merge: (persisted, current) => {
         const saved = persisted as Partial<PersistedStudio>
@@ -394,6 +472,8 @@ export const useStudioStore = create<StudioStore>()(
           ...current,
           paragraphs: (saved.paragraphs ?? current.paragraphs).map(normalizeParagraph),
           chapter,
+          projectTitle: saved.projectTitle ?? current.projectTitle,
+          chapterTitle: saved.chapterTitle ?? current.chapterTitle,
           selectedParagraphId:
             current.selectedParagraphId ??
             (saved.paragraphs ?? current.paragraphs)[0]?.id ??

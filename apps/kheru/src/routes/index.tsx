@@ -1,8 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Toaster } from 'sonner'
-import { AlertCircle } from 'lucide-react'
 import { StudioShell } from '@/components/studio/StudioShell'
 import { KeyboardShortcutsDialog } from '@/components/studio/KeyboardShortcutsDialog'
 import { useStudioHydration } from '@/hooks/use-studio-hydration'
@@ -74,11 +72,13 @@ function StudioPage() {
 
   return (
     <>
-      <StudioShell
+      <div className="flex min-h-0 flex-1 flex-col">
+        <StudioShell
         hydrated={hydrated}
         voices={voiceList}
         isLoadingVoices={isLoadingVoices}
         chapterGenerating={chapter.status === 'generating'}
+        chapterError={chapter.error}
         hasText={hasText}
         canPlay={canPlay}
         isPlaying={playback.isPlaying}
@@ -89,16 +89,8 @@ function StudioPage() {
         onPlayAll={handlePlayAll}
         onPlaySelection={handlePlaySelection}
         onOpenShortcuts={() => setShortcutsOpen(true)}
-      />
-
-      {chapter.error && (
-        <div className="border-t border-destructive/20 bg-destructive/10 px-6 py-3">
-          <Alert variant="destructive">
-            <AlertCircle />
-            <AlertDescription>{chapter.error}</AlertDescription>
-          </Alert>
-        </div>
-      )}
+        />
+      </div>
 
       <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <Toaster position="bottom-right" />

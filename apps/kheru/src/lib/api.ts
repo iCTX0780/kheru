@@ -56,6 +56,11 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
+export interface StitchResponse {
+  run_id: string
+  audio_url: string
+}
+
 const api = {
   voices: async (): Promise<VoiceInfo[]> => {
     const res = await fetch('/api/voices')
@@ -73,6 +78,20 @@ const api = {
     if (!res.ok) throw new Error(await parseError(res))
     return res.json()
   },
+
+  stitch: async (runIds: string[]): Promise<StitchResponse> => {
+    const res = await fetch('/api/stitch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ run_ids: runIds }),
+    })
+    if (!res.ok) throw new Error(await parseError(res))
+    return res.json()
+  },
+}
+
+export async function stitchRunIds(runIds: string[]): Promise<StitchResponse> {
+  return api.stitch(runIds)
 }
 
 export function useVoices() {

@@ -160,9 +160,13 @@ export function GenerationProgressPanel() {
 
   const currentId = generationSession.paragraphIds[generationSession.currentIndex]
   const currentParagraph = currentId ? paragraphById.get(currentId) : undefined
+  const isAligning =
+    generationSession.active && generationSession.paragraphPhase === 'aligning' && !isStitching
   const currentPreview =
-    currentParagraph?.text.trim().slice(0, 64) ||
-    (isStitching ? 'Stitching chapter mix…' : 'Preparing…')
+    isAligning
+      ? 'Aligning words…'
+      : currentParagraph?.text.trim().slice(0, 64) ||
+        (isStitching ? 'Stitching chapter mix…' : 'Preparing…')
 
   const visible =
     generationSession.active ||
@@ -222,6 +226,8 @@ export function GenerationProgressPanel() {
                 ? 'Generation stopped'
                 : isStitching
                   ? 'Stitching chapter'
+                  : isAligning
+                    ? 'Aligning words'
                   : showComplete
                     ? 'Generation complete'
                     : isLargeBatch && generationSession.active

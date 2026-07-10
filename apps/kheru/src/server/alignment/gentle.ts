@@ -13,6 +13,8 @@ interface GentleResponse {
   words?: GentleWord[]
 }
 
+export const GENTLE_ALIGN_MAX_BYTES = 10 * 1024 * 1024
+
 const GENTLE_TIMEOUT_MS = 120_000
 const GENTLE_PROBE_MS = 3_000
 
@@ -23,6 +25,13 @@ let gentleUnreachableLogged = false
 export function gentleUrl(): string | null {
   const url = process.env.GENTLE_URL?.trim()
   return url || null
+}
+
+/** True when GENTLE_URL is set and the aligner responds. */
+export async function isGentleAvailable(): Promise<boolean> {
+  const url = gentleUrl()
+  if (!url) return false
+  return isGentleReachable(url)
 }
 
 /** Probe Gentle once per process/base URL; skip alignment when unreachable. */
@@ -53,18 +62,17 @@ export async function isGentleReachable(baseUrl: string): Promise<boolean> {
   return gentleReachable
 }
 
-/** Align a WAV clip to its transcript via Gentle. Returns clip-relative word timings. */
-export async function alignWithGentle(
-  audioPath: string,
+/** Align WAV bytes to transcript via Gentle. Returns clip-relative word timings. */
+export async function alignWithGentleBytes(
+  audio: Uint8Array,
   transcript: string,
   baseUrl: string
 ): Promise<WordTiming[]> {
   const trimmed = transcript.trim()
   if (!trimmed) return []
 
-  const audioBytes = readFileSync(audioPath)
   const form = new FormData()
-  form.append('audio', new Blob([audioBytes], { type: 'audio/wav' }), 'audio.wav')
+  form.append('audio', new Blob([audio], { type: 'audio/wav' }), 'audio.wav')
   form.append('transcript', trimmed)
 
   const controller = new AbortController()
@@ -86,6 +94,16 @@ export async function alignWithGentle(
   } finally {
     clearTimeout(timeout)
   }
+}
+
+/** Align a WAV clip on disk to its transcript via Gentle. */
+export async function alignWithGentle(
+  audioPath: string,
+  transcript: string,
+  baseUrl: string
+): Promise<WordTiming[]> {
+  const audioBytes = readFileSync(audioPath)
+  return alignWithGentleBytes(audioBytes, transcript, baseUrl)
 }
 
 export function parseGentleWords(words: GentleWord[]): WordTiming[] {

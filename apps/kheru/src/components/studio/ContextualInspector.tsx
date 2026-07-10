@@ -13,6 +13,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { VoicePicker } from '@/components/VoicePicker'
 import { paragraphStatusLabel } from '@/lib/paragraph-status'
+import { isClientTtsEnabled } from '@/lib/client-tts/config'
+import { getCachedServerCapabilities } from '@/lib/client-tts/capabilities'
 import { fromDisplaySpeed, SPEED_MAX, SPEED_MIN, toDisplaySpeed } from '@/lib/speed'
 import { useStudioStore } from '@/stores/studio'
 import { ChevronDown, Play, Sparkles } from 'lucide-react'
@@ -34,6 +36,7 @@ export function ContextualInspector({
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
   const updateParagraph = useStudioStore((s) => s.updateParagraph)
+  const generationParagraphPhase = useStudioStore((s) => s.generationSession.paragraphPhase)
 
   const paragraph = paragraphs.find((p) => p.id === selectedParagraphId)
 
@@ -53,6 +56,9 @@ export function ContextualInspector({
   const isGenerating = paragraph.status === 'generating'
   const canPlay = paragraph.status === 'done' && paragraph.audioUrl
   const generateLabel = paragraph.status === 'done' ? 'Regenerate' : 'Generate'
+  const clientTts = isClientTtsEnabled()
+  const gentleAvailable = getCachedServerCapabilities()?.gentle ?? false
+  const hasGentleTimings = Boolean(paragraph.wordTimings?.length)
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden border-l border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -115,7 +121,7 @@ export function ContextualInspector({
               {isGenerating ? (
                 <>
                   <Spinner data-icon="inline-start" />
-                  Generating
+                  {generationParagraphPhase === 'aligning' ? 'Aligning' : 'Generating'}
                 </>
               ) : (
                 <>
@@ -138,6 +144,24 @@ export function ContextualInspector({
           {paragraph.status === 'stale' && (
             <p className="text-xs text-amber-600 dark:text-amber-400">
               Content changed — regenerate to update audio.
+            </p>
+          )}
+
+          {paragraph.status === 'done' && hasGentleTimings && (
+            <p className="text-xs text-muted-foreground">Word highlights (Gentle).</p>
+          )}
+
+          {paragraph.status === 'done' && !hasGentleTimings && clientTts && (
+            <p className="text-xs text-muted-foreground">
+              {gentleAvailable
+                ? 'Estimated word highlights — alignment did not return timings for this clip.'
+                : 'Estimated word highlights (offline). Enable Gentle on the server for aligned karaoke.'}
+            </p>
+          )}
+
+          {paragraph.status === 'done' && !hasGentleTimings && !clientTts && (
+            <p className="text-xs text-muted-foreground">
+              Estimated word highlights. Run with Gentle for aligned karaoke.
             </p>
           )}
 

@@ -175,24 +175,39 @@ export function alignTimingsToText(words: string[], timings: WordTiming[]): Text
   return aligned
 }
 
-/** Active display-word index for highlighting, using Gentle timings when available. */
-export function activeTextWordIndex(
+export interface PreparedWordHighlight {
+  words: string[]
+  aligned: TextWordAlignment[]
+  hasTimings: boolean
+}
+
+/** Precompute Gentle→script alignment once per paragraph; reuse during playback. */
+export function prepareWordHighlight(
+  text: string,
+  timings: WordTiming[] | null | undefined
+): PreparedWordHighlight {
+  const words = splitWords(text)
+  if (words.length === 0 || !timings?.length) {
+    return { words, aligned: [], hasTimings: false }
+  }
+
+  const aligned = alignTimingsToText(words, timings)
+  return { words, aligned, hasTimings: aligned.length > 0 }
+}
+
+/** Active word index from a prepared highlight map (cheap — safe every frame). */
+export function activeTextWordIndexFromPrepared(
+  prepared: PreparedWordHighlight,
   text: string,
   localTime: number,
-  speechDuration: number,
-  timings: WordTiming[] | null | undefined
+  speechDuration: number
 ): number | null {
-  const words = splitWords(text)
+  const { words, aligned, hasTimings } = prepared
   if (words.length === 0) return null
 
   const progress = speechDuration > 0 ? Math.min(Math.max(localTime / speechDuration, 0), 1) : 0
 
-  if (!timings?.length) {
-    return activeWordIndexForProgress(text, progress)
-  }
-
-  const aligned = alignTimingsToText(words, timings)
-  if (aligned.length === 0) {
+  if (!hasTimings) {
     return activeWordIndexForProgress(text, progress)
   }
 
@@ -226,4 +241,19 @@ export function activeTextWordIndex(
   }
 
   return activeWordIndexForProgress(text, progress)
+}
+
+/** Active display-word index for highlighting, using Gentle timings when available. */
+export function activeTextWordIndex(
+  text: string,
+  localTime: number,
+  speechDuration: number,
+  timings: WordTiming[] | null | undefined
+): number | null {
+  return activeTextWordIndexFromPrepared(
+    prepareWordHighlight(text, timings),
+    text,
+    localTime,
+    speechDuration
+  )
 }

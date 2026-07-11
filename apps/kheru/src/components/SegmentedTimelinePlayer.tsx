@@ -316,6 +316,19 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
           return
         }
 
+        // Client TTS blobs are already in memory — fetching copies the whole WAV again.
+        if (loadUrl.startsWith('blob:')) {
+          revokePlayableAudioUrl(objectUrlRef.current)
+          objectUrlRef.current = null
+          audio.addEventListener('loadedmetadata', onLoaded, { once: true })
+          audio.addEventListener('error', onError, { once: true })
+          audio.pause()
+          audio.currentTime = 0
+          audio.src = loadUrl
+          audio.load()
+          return
+        }
+
         const objectUrl = await toPlayableAudioUrl(loadUrl, { signal: fetchAbort.signal })
         if (cancelled || loadGenerationRef.current !== generation) {
           revokePlayableAudioUrl(objectUrl)

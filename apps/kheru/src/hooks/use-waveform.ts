@@ -48,6 +48,15 @@ export function useWaveform(
           return
         }
 
+        // Blob URLs already hold the WAV in memory — decodeAudioData duplicates PCM (~10× size).
+        if (audioUrl.startsWith('blob:')) {
+          if (cancelled) return
+          const duration = Math.max(options?.estimatedDuration ?? 1, 0.01)
+          const samples = new Array(500).fill(0.08)
+          onDataReadyRef.current({ samples, duration, maxAmplitude: 0.08 })
+          return
+        }
+
         const response = await fetch(audioUrl, { signal: controller.signal })
         const arrayBuffer = await response.arrayBuffer()
 

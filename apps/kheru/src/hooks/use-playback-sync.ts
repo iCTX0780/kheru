@@ -1,6 +1,11 @@
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { findSegmentRegionForTime } from '@/lib/playback-segments'
-import { activeTextWordIndex } from '@/lib/playback-words'
+import {
+  activeTextWordIndexFromPrepared,
+  prepareWordHighlight,
+  type PreparedWordHighlight,
+  type WordTiming,
+} from '@/lib/playback-words'
 import type { PlaybackMode } from '@/stores/studio'
 import { useStudioStore } from '@/stores/studio'
 
@@ -12,17 +17,42 @@ interface UsePlaybackSyncOptions {
 
 const SYNC_MIN_INTERVAL_MS = 1000 / 30
 
-function resolveActiveWordIndex(
+interface HighlightCache {
+  paragraphId: string | null
+  text: string
+  timings: WordTiming[] | null | undefined
+  prepared: PreparedWordHighlight
+}
+
+function getCachedHighlight(
+  cache: HighlightCache,
+  paragraphId: string,
   text: string,
-  localTime: number,
-  speechDuration: number,
-  wordTimings: { word: string; start: number; end: number }[] | null | undefined
-): number | null {
-  return activeTextWordIndex(text, localTime, speechDuration, wordTimings)
+  wordTimings: WordTiming[] | null | undefined
+): PreparedWordHighlight {
+  if (
+    cache.paragraphId === paragraphId &&
+    cache.text === text &&
+    cache.timings === wordTimings
+  ) {
+    return cache.prepared
+  }
+
+  cache.paragraphId = paragraphId
+  cache.text = text
+  cache.timings = wordTimings
+  cache.prepared = prepareWordHighlight(text, wordTimings)
+  return cache.prepared
 }
 
 export function usePlaybackSync({ audioRef, isPlaying, mode }: UsePlaybackSyncOptions) {
   const setPlayback = useStudioStore((s) => s.setPlayback)
+  const highlightCacheRef = useRef<HighlightCache>({
+    paragraphId: null,
+    text: '',
+    timings: undefined,
+    prepared: { words: [], aligned: [], hasTimings: false },
+  })
 
   useEffect(() => {
     if (!isPlaying || !audioRef.current || !mode) return
@@ -56,11 +86,17 @@ export function usePlaybackSync({ audioRef, isPlaying, mode }: UsePlaybackSyncOp
         activeParagraphId = playback.playingParagraphId
         const paragraph = paragraphs.find((p) => p.id === playback.playingParagraphId)
         if (paragraph?.text.trim()) {
-          activeWordIndex = resolveActiveWordIndex(
+          const prepared = getCachedHighlight(
+            highlightCacheRef.current,
+            paragraph.id,
+            paragraph.text,
+            paragraph.wordTimings
+          )
+          activeWordIndex = activeTextWordIndexFromPrepared(
+            prepared,
             paragraph.text,
             audio.currentTime,
-            audio.duration,
-            paragraph.wordTimings
+            audio.duration
           )
         }
       } else if (mode === 'chapter' || mode === 'sequence') {
@@ -85,11 +121,17 @@ export function usePlaybackSync({ audioRef, isPlaying, mode }: UsePlaybackSyncOp
                   : speechDuration
                 : speechDuration
 
-            activeWordIndex = resolveActiveWordIndex(
+            const prepared = getCachedHighlight(
+              highlightCacheRef.current,
+              paragraph.id,
+              paragraph.text,
+              paragraph.wordTimings
+            )
+            activeWordIndex = activeTextWordIndexFromPrepared(
+              prepared,
               paragraph.text,
               localTime,
-              timingDuration,
-              paragraph.wordTimings
+              timingDuration
             )
           }
         }

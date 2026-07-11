@@ -13,6 +13,9 @@ interface ProtectedSpan {
 
 /** Patterns whose `.` must not end a sentence for TTS chunking. Longest / most specific first. */
 const PROTECTED_SPAN_PATTERNS: RegExp[] = [
+  /"[^"]*"/g,
+  /'[^']*'/g,
+  /\.{3,}/g,
   /\b(?:e\.g\.|i\.e\.|etc\.|vs\.|Jr\.|Sr\.|Dr\.|Mr\.|Mrs\.|Ms\.)\b/gi,
   /\b[a-z][a-z0-9]*\.(?:js|ts|tsx|jsx|mjs|cjs)\b/gi,
   /\bv\d+(?:\.\d+)+[a-zA-Z0-9]*\b/g,
@@ -59,10 +62,17 @@ function restoreSpans(text: string, spans: ProtectedSpan[]): string {
 
 function splitSentences(text: string): string[] {
   const { text: protectedText, spans } = protectSpans(text)
-  const sentences =
-    protectedText.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [
-      protectedText,
-    ]
+  const matches = [...protectedText.matchAll(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g)]
+  const sentences = matches.map((match) => match[0].trim()).filter(Boolean)
+
+  if (sentences.length === 0) {
+    return [restoreSpans(protectedText, spans)].filter(Boolean)
+  }
+
+  const covered = matches.reduce((sum, match) => sum + match[0].length, 0)
+  if (covered < protectedText.trim().length) {
+    return [restoreSpans(protectedText, spans)].filter(Boolean)
+  }
 
   return sentences.map((sentence) => restoreSpans(sentence, spans)).filter(Boolean)
 }

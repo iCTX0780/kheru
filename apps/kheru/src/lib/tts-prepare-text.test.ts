@@ -27,4 +27,22 @@ describe('prepareTextForTts', () => {
     const { spoken } = prepareTextForTts('DOM [as: D O M] everywhere.')
     expect(spoken).toBe('D O M everywhere.')
   })
+
+  it('speaks numeric ranges with arrows as "to"', () => {
+    const { spoken } = prepareTextForTts('Angular 14 → 18 migration')
+    expect(spoken).toBe('Angular 14 to 18 migration')
+  })
+
+  it('spells API letter-by-letter in context', () => {
+    expect(prepareTextForTts('an API response').spoken).toBe('an A. P. I. response')
+    expect(prepareTextForTts('an api response').spoken).toBe('an A. P. I. response')
+    expect(prepareTextForTts('REST APIs return JSON.').spoken).toBe(
+      'REST A. P. I.s return J S O N.'
+    )
+  })
+
+  it('normalizes unicode ellipsis for speech', () => {
+    const { spoken } = prepareTextForTts('Standalone collapses that… done.')
+    expect(spoken).toBe('Standalone collapses that... done.')
+  })
 })

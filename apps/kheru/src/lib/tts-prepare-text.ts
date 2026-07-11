@@ -20,7 +20,8 @@ export const TTS_GLOSSARY: TtsGlossaryEntry[] = [
   { pattern: /\bHTTP\b/g, spoken: 'H T T P', mode: 'spell' },
   { pattern: /\bJSON\b/g, spoken: 'J S O N', mode: 'spell' },
   { pattern: /\bAWS\b/g, spoken: 'A W S', mode: 'spell' },
-  { pattern: /\bAPI\b/g, spoken: 'A P I', mode: 'spell' },
+  { pattern: /\bAPIs\b/gi, spoken: 'A. P. I.s', mode: 'spell' },
+  { pattern: /\bAPI\b/gi, spoken: 'A. P. I.', mode: 'spell' },
   { pattern: /\bURL\b/g, spoken: 'U R L', mode: 'spell' },
   { pattern: /\bSQL\b/g, spoken: 'S Q L', mode: 'spell' },
   { pattern: /\bCLI\b/g, spoken: 'C L I', mode: 'spell' },
@@ -49,6 +50,14 @@ function applyGlossary(spoken: string, glossary: TtsGlossaryEntry[]): string {
     result = result.replace(entry.pattern, entry.spoken)
   }
   return result
+}
+
+/** Normalize punctuation that Kokoro misreads before glossary + chunking. */
+function normalizeSpeechPunctuation(text: string): string {
+  return text
+    .replace(/(\d+)\s*(?:→|->|—>)\s*(\d+)/g, '$1 to $2')
+    .replace(/\s*→\s*/g, ' to ')
+    .replace(/…/g, '...')
 }
 
 function applyAuthorOverrides(text: string): { display: string; spoken: string } {
@@ -93,7 +102,7 @@ export function prepareTextForTts(
   if (!trimmed) return { display: '', spoken: '' }
 
   const { display, spoken: withOverrides } = applyAuthorOverrides(trimmed)
-  const spoken = applyGlossary(withOverrides, glossary)
+  const spoken = applyGlossary(normalizeSpeechPunctuation(withOverrides), glossary)
 
   return {
     display: display.trim(),

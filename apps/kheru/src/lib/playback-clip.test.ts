@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isClipAtEnd, sequenceClipKey } from './playback-clip'
+import { isClipAtEnd, prepareAudioElementForPlay, sequenceClipKey } from './playback-clip'
 
 describe('playback-clip', () => {
   it('sequenceClipKey includes audio url', () => {
@@ -16,5 +16,15 @@ describe('playback-clip', () => {
     } as HTMLAudioElement
     expect(isClipAtEnd(audio, 5)).toBe(true)
     expect(isClipAtEnd(audio, 10)).toBe(false)
+  })
+
+  it('prepareAudioElementForPlay resets ended clips', () => {
+    const audio = {
+      ended: true,
+      duration: 5,
+      currentTime: 5,
+    } as HTMLAudioElement
+    prepareAudioElementForPlay(audio, 0)
+    expect(audio.currentTime).toBe(0)
   })
 })

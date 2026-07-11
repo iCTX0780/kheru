@@ -18,7 +18,7 @@ import { playableParagraphs, findSegmentRegionForTime, buildSegmentsFromParagrap
 import { scrollToParagraph } from '@/lib/scroll-to-paragraph'
 import { voiceSegmentClass } from '@/lib/voice-colors'
 import { revokePlayableAudioUrl, shouldStreamPlayback, toPlayableAudioUrl } from '@/lib/playable-audio-url'
-import { isClipAtEnd, sequenceClipKey } from '@/lib/playback-clip'
+import { isClipAtEnd, prepareAudioElementForPlay, sequenceClipKey } from '@/lib/playback-clip'
 import { audioExists } from '@/lib/validate-audio'
 import { cn } from '@/lib/utils'
 
@@ -60,6 +60,7 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
   const loadGenerationRef = useRef(0)
   const sequenceIndexRef = useRef(0)
   const clipLoadingRef = useRef(false)
+  const sequenceAdvanceLockRef = useRef(false)
   const [duration, setDuration] = useState(0)
 
   const chapter = useStudioStore((s) => s.chapter)
@@ -153,12 +154,19 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
   }, [playback.previewPlaybackRate, clipKey])
 
   const advanceSequence = useCallback(() => {
+    if (sequenceAdvanceLockRef.current) return
+    sequenceAdvanceLockRef.current = true
+
     const state = useStudioStore.getState()
     const { playback: pb } = state
-    if (pb.mode !== 'sequence') return
+    if (pb.mode !== 'sequence') {
+      sequenceAdvanceLockRef.current = false
+      return
+    }
 
     const nextIndex = pb.sequenceIndex + 1
     if (nextIndex >= pb.sequenceParagraphIds.length) {
+      loadedClipKeyRef.current = null
       setPlayback({
         isPlaying: false,
         currentTime: 0,
@@ -166,6 +174,9 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
         activeWordIndex: null,
         sequenceIndex: 0,
         sequenceTimeOffset: 0,
+      })
+      window.requestAnimationFrame(() => {
+        sequenceAdvanceLockRef.current = false
       })
       return
     }
@@ -186,6 +197,10 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
       currentTime: nextSegment?.start ?? 0,
       activeParagraphId: nextId ?? null,
       activeWordIndex: null,
+    })
+
+    window.requestAnimationFrame(() => {
+      sequenceAdvanceLockRef.current = false
     })
   }, [setPlayback])
 
@@ -354,6 +369,15 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
 
     if (clipLoadingRef.current || audio.readyState < HTMLMediaElement.HAVE_METADATA) return
 
+    const { playback: pb } = useStudioStore.getState()
+    const localStart =
+      pb.mode === 'sequence'
+        ? Math.max(0, pb.currentTime - pb.sequenceTimeOffset)
+        : pb.mode === 'chapter'
+          ? pb.currentTime
+          : 0
+    prepareAudioElementForPlay(audio, localStart)
+
     if (audio.paused) {
       void audio.play().catch(() => setPlayback({ isPlaying: false }))
     }
@@ -458,7 +482,13 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
         playback.sequenceIndex >= playback.sequenceParagraphIds.length - 1 &&
         playback.currentTime >= (timelineSegments.at(-1)?.end ?? 0) - 0.15
 
-      if (finished) {
+      const restartingFromStart =
+        playback.sequenceIndex === 0 &&
+        playback.sequenceTimeOffset === 0 &&
+        playback.currentTime === 0 &&
+        loadedClipKeyRef.current !== null
+
+      if (finished || restartingFromStart) {
         const first = playback.sequenceParagraphIds[0]
         updates.sequenceIndex = 0
         updates.sequenceTimeOffset = 0

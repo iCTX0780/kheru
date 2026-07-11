@@ -7,7 +7,7 @@ import { blobToTargetRateWav, blobDurationSeconds } from '@/lib/client-tts/wav'
 let engine: KokoroTTS | null = null
 let initPromise: Promise<void> | null = null
 let readyDevice: 'webgpu' | 'wasm' = 'wasm'
-let readyDtype = 'q8'
+let readyDtype: 'fp32' | 'q8' = 'q8'
 
 async function ensureEngine(): Promise<void> {
   if (engine) return
@@ -20,6 +20,17 @@ async function ensureEngine(): Promise<void> {
     engine = await KokoroTTS.from_pretrained(CLIENT_TTS_MODEL_ID, {
       dtype: readyDtype,
       device: readyDevice,
+      progress_callback: (info) => {
+        if (info.status === 'progress') {
+          postMessage({
+            type: 'load-progress',
+            progress: info.progress,
+            file: info.file,
+            loaded: info.loaded,
+            total: info.total,
+          } satisfies WorkerOutboundMessage)
+        }
+      },
     })
     const loadMs = Math.round(performance.now() - loadStart)
     postMessage({ type: 'ready', device: readyDevice, dtype: readyDtype, loadMs } satisfies WorkerOutboundMessage)

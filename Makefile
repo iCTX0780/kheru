@@ -14,6 +14,10 @@ kokoro-js-spike:
 dev-kheru:
 	$(WITH_NODE) bash -c 'cd apps/kheru && DATA_DIR="$$(pwd)/data" GENTLE_URL="$${GENTLE_URL:-}" pnpm dev'
 
+# Client TTS only — WebGPU/WASM in browser, no Gentle alignment
+dev-client:
+	$(WITH_NODE) bash -c 'cd apps/kheru && DATA_DIR="$$(pwd)/data" GENTLE_URL= VITE_CLIENT_TTS=1 pnpm dev'
+
 dev: dev-kheru
 
 dev-gentle: gentle-up

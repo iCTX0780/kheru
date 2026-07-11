@@ -77,7 +77,7 @@ export const ProjectCard = memo(function ProjectCard({
       </CardContent>
       <CardFooter className="relative flex items-center justify-between gap-2">
         <Button
-          type="button"
+          nativeButton={false}
           size="sm"
           render={<Link to="/studio/$projectId" params={{ projectId: project.id }} preload="intent" />}
         >

@@ -34,10 +34,10 @@ describe('prepareTextForTts', () => {
   })
 
   it('spells API letter-by-letter in context', () => {
-    expect(prepareTextForTts('an API response').spoken).toBe('an A P I response')
-    expect(prepareTextForTts('an api response').spoken).toBe('an A P I response')
+    expect(prepareTextForTts('an API response').spoken).toBe('an API response')
+    expect(prepareTextForTts('an api response').spoken).toBe('an API response')
     expect(prepareTextForTts('REST APIs return JSON.').spoken).toBe(
-      'REST A P I s return J S O N.'
+      'REST APIs return J S O N.'
     )
   })
 

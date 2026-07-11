@@ -20,8 +20,9 @@ export const TTS_GLOSSARY: TtsGlossaryEntry[] = [
   { pattern: /\bHTTP\b/g, spoken: 'H T T P', mode: 'spell' },
   { pattern: /\bJSON\b/g, spoken: 'J S O N', mode: 'spell' },
   { pattern: /\bAWS\b/g, spoken: 'A W S', mode: 'spell' },
-  { pattern: /\bAPIs\b/gi, spoken: 'A P I s', mode: 'spell' },
-  { pattern: /\bAPI\b/gi, spoken: 'A P I', mode: 'spell' },
+  // Keep contiguous caps so Kokoro's G2P spells acronyms; spaced "A P I" is read as "api".
+  { pattern: /\bAPIs\b/gi, spoken: 'APIs', mode: 'spell' },
+  { pattern: /\bAPI\b/gi, spoken: 'API', mode: 'spell' },
   { pattern: /\bURL\b/g, spoken: 'U R L', mode: 'spell' },
   { pattern: /\bSQL\b/g, spoken: 'S Q L', mode: 'spell' },
   { pattern: /\bCLI\b/g, spoken: 'C L I', mode: 'spell' },

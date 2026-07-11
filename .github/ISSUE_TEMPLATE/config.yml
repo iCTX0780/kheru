@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/iCTX0780/kheru/blob/main/docs/README.md
+    about: Architecture, TTS modes, and extension guide
+  - name: Contributing guide
+    url: https://github.com/iCTX0780/kheru/blob/main/CONTRIBUTING.md
+    about: Dev setup, PR process, and how we triage issues

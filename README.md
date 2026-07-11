@@ -1,8 +1,17 @@
 # Kheru
 
-Offline rehearsal studio for scripted dialogue. Write paragraph-by-paragraph, assign Kokoro voices, generate audio, and play back with word-level highlighting.
+Open-source offline rehearsal studio for scripted dialogue. Write paragraph-by-paragraph, assign Kokoro voices, generate audio, and play back with word-level highlighting.
 
-One TanStack Start app — UI, TTS API, and file storage in a single Node process.
+One TanStack Start app — UI, TTS API, and file storage in a single Node process. Current focus: **English (US) voices**; other dialects and languages are welcome via [contributions](CONTRIBUTING.md).
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [docs/README.md](docs/README.md) | Overview, concepts, doc index |
+| [docs/architecture.md](docs/architecture.md) | System design, diagrams, how to extend |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup, PRs, issues & feature requests |
+| [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md) | Hosted / hybrid / offline TTS modes |
 
 ## Quick start
 

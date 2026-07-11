@@ -1,7 +1,9 @@
 import type { Chapter, Paragraph } from '@/stores/studio'
+import { syncParagraphFromActiveGeneration } from '@/lib/paragraph-generations'
 import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import {
   loadChapterAudioOpfs,
+  loadLegacyParagraphAudioOpfs,
   loadParagraphAudioOpfs,
   opfsAudioSupported,
 } from '@/lib/client-tts/opfs'
@@ -34,6 +36,23 @@ export async function audioExists(url: string): Promise<boolean> {
   }
 }
 
+async function restoreGenerationFromOpfs(
+  projectId: string,
+  paragraphId: string,
+  generationId: string,
+  audioRef?: string
+): Promise<Blob | null> {
+  const byGenerationId = await loadParagraphAudioOpfs(projectId, paragraphId, generationId)
+  if (byGenerationId) return byGenerationId
+
+  if (audioRef && audioRef !== generationId) {
+    const byRef = await loadParagraphAudioOpfs(projectId, paragraphId, audioRef)
+    if (byRef) return byRef
+  }
+
+  return loadLegacyParagraphAudioOpfs(projectId, paragraphId)
+}
+
 /** Try restoring paragraph/chapter audio from OPFS after refresh. */
 export async function restoreClientAudioFromOpfs(
   projectId: string,
@@ -50,22 +69,33 @@ export async function restoreClientAudioFromOpfs(
 
   for (let i = 0; i < nextParagraphs.length; i++) {
     const paragraph = nextParagraphs[i]
-    if (paragraph.status === 'idle' || paragraph.status === 'generating') continue
-    if (paragraph.audioUrl && (await audioExists(paragraph.audioUrl))) continue
+    const generations = paragraph.generations ?? []
+    let changed = false
+    const nextGenerations = [...generations]
 
-    const blob = await loadParagraphAudioOpfs(projectId, paragraph.id)
-    if (!blob) continue
+    for (let g = 0; g < nextGenerations.length; g++) {
+      const generation = nextGenerations[g]
+      if (generation.audioUrl && (await audioExists(generation.audioUrl))) continue
 
-    const audioUrl = createManagedBlobUrl(blob)
-    const duration = paragraph.duration ?? (await blobDurationFromBlob(blob))
-    nextParagraphs[i] = {
-      ...paragraph,
-      status: 'done',
-      audioUrl,
-      duration,
-      wordTimings: null,
-      error: undefined,
+      const blob = await restoreGenerationFromOpfs(
+        projectId,
+        paragraph.id,
+        generation.id,
+        generation.audioRef
+      )
+      if (!blob) continue
+
+      const audioUrl = createManagedBlobUrl(blob)
+      nextGenerations[g] = { ...generation, audioUrl }
+      changed = true
     }
+
+    if (!changed) continue
+
+    nextParagraphs[i] = syncParagraphFromActiveGeneration({
+      ...paragraph,
+      generations: nextGenerations,
+    })
   }
 
   if (chapter.audioUrl && chapter.status === 'done' && !(await audioExists(chapter.audioUrl))) {
@@ -82,17 +112,6 @@ export async function restoreClientAudioFromOpfs(
   }
 
   return { paragraphs: nextParagraphs, chapter: nextChapter }
-}
-
-async function blobDurationFromBlob(blob: Blob): Promise<number> {
-  const ctx = new AudioContext()
-  try {
-    const buffer = await blob.arrayBuffer()
-    const audioBuffer = await ctx.decodeAudioData(buffer.slice(0))
-    return audioBuffer.duration
-  } finally {
-    await ctx.close()
-  }
 }
 
 /** Check persisted audio URLs still resolve (server HEAD or blob/OPFS). */

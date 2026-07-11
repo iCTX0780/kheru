@@ -2,12 +2,19 @@ import { useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   turnFromParagraph,
-  useGenerate,
+  generateConversation,
   wordTimingsForTurn,
   segmentDurationFromResult,
   stitchRunIds,
   type GenerateResponse,
 } from '@/lib/api'
+import { cancelPendingClientTts } from '@/lib/client-tts/engine'
+import {
+  assertGenerationNotCancelled,
+  beginGenerationRun,
+  isGenerationCancelled,
+  stopGenerationRun,
+} from '@/lib/generation-cancel'
 import { resolveClipDuration } from '@/lib/audio-duration'
 import { revokeManagedBlobUrl } from '@/lib/client-tts/blob-registry'
 import { fetchServerCapabilities } from '@/lib/client-tts/capabilities'
@@ -15,32 +22,41 @@ import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import { clientGenerateParagraph, clientStitchParagraphs } from '@/lib/client-tts/generate'
 import { estimateBulkGenerationMs, formatEta } from '@/lib/generation-estimate'
 import { buildSegmentsFromParagraphs, playableParagraphs, PARAGRAPH_GAP_SECONDS } from '@/lib/playback-segments'
-import { useStudioStore, type Paragraph } from '@/stores/studio'
+import { useStudioStore, type Paragraph, type PlaybackSegment } from '@/stores/studio'
 
 async function applyParagraphResult(
   paragraph: Paragraph,
   result: GenerateResponse,
-  setParagraphDone: ReturnType<typeof useStudioStore.getState>['setParagraphDone']
+  appendParagraphGeneration: ReturnType<typeof useStudioStore.getState>['appendParagraphGeneration']
 ): Promise<string> {
   const audioUrl = result.clips?.[0]?.audio_url ?? result.audio_url
   const runId = result.clips?.[0]?.run_id ?? result.run_id
   const duration = await resolveClipDuration(audioUrl, segmentDurationFromResult(result, 0))
   const wordTimings = wordTimingsForTurn(result.words, 0)
-  setParagraphDone(paragraph.id, audioUrl, duration, wordTimings.length > 0 ? wordTimings : null)
+  appendParagraphGeneration(
+    paragraph.id,
+    audioUrl,
+    duration,
+    wordTimings.length > 0 ? wordTimings : null,
+    runId
+  )
   return runId
 }
 
 async function applyClientParagraphResult(
   paragraph: Paragraph,
-  setParagraphDone: ReturnType<typeof useStudioStore.getState>['setParagraphDone'],
+  appendParagraphGeneration: ReturnType<typeof useStudioStore.getState>['appendParagraphGeneration'],
   options: {
     projectId: string
     align: boolean
     onAlignStart?: () => void
+    signal: AbortSignal
+    isCancelled: () => boolean
   }
-): Promise<{ blob: Blob; audioUrl: string }> {
+): Promise<{ blob: Blob; audioUrl: string; generationId: string }> {
   revokeManagedBlobUrl(paragraph.audioUrl)
 
+  const generationId = crypto.randomUUID()
   const result = await clientGenerateParagraph(
     {
       text: paragraph.text.trim(),
@@ -50,13 +66,22 @@ async function applyClientParagraphResult(
     {
       projectId: options.projectId,
       paragraphId: paragraph.id,
+      generationId,
       align: options.align,
       onAlignStart: options.onAlignStart,
+      signal: options.signal,
+      isCancelled: options.isCancelled,
     }
   )
 
-  setParagraphDone(paragraph.id, result.audioUrl, result.duration, result.wordTimings)
-  return { blob: result.blob, audioUrl: result.audioUrl }
+  appendParagraphGeneration(
+    paragraph.id,
+    result.audioUrl,
+    result.duration,
+    result.wordTimings,
+    generationId
+  )
+  return { blob: result.blob, audioUrl: result.audioUrl, generationId }
 }
 
 function buildChapterSegments(paragraphs: Paragraph[]) {
@@ -77,8 +102,72 @@ function buildChapterSegments(paragraphs: Paragraph[]) {
   })
 }
 
+function paragraphsWithText(paragraphs: Paragraph[]): Paragraph[] {
+  return paragraphs.filter((p) => p.text.trim())
+}
+
+function allTextParagraphsHaveActiveTake(paragraphs: Paragraph[]): boolean {
+  const withText = paragraphsWithText(paragraphs)
+  if (withText.length === 0) return false
+  return withText.every((p) => p.status === 'done' && p.audioUrl)
+}
+
+function extractRunId(audioUrl: string): string | null {
+  const match = audioUrl.match(/\/api\/audio\/([0-9a-f]{8})$/)
+  return match?.[1] ?? null
+}
+
+async function stitchChapterFromActiveTakes(options: {
+  clientTts: boolean
+  projectId: string
+  chapterId: string
+  paragraphs: Paragraph[]
+  clientClips?: Blob[]
+}): Promise<{ audioUrl: string; segments: PlaybackSegment[] } | null> {
+  const withText = paragraphsWithText(options.paragraphs)
+  if (!allTextParagraphsHaveActiveTake(options.paragraphs)) return null
+
+  const segments = buildChapterSegments(withText)
+
+  if (options.clientTts) {
+    const blobs: Blob[] = []
+    for (const paragraph of withText) {
+      if (!paragraph.audioUrl) return null
+      const response = await fetch(paragraph.audioUrl)
+      blobs.push(await response.blob())
+    }
+    const stitched = await clientStitchParagraphs(blobs, {
+      projectId: options.projectId,
+      chapterId: options.chapterId,
+    })
+    return { audioUrl: stitched.audioUrl, segments }
+  }
+
+  const runIds: string[] = []
+  for (const paragraph of withText) {
+    if (!paragraph.audioUrl) return null
+    const runId = extractRunId(paragraph.audioUrl)
+    if (!runId) return null
+    runIds.push(runId)
+  }
+  const stitched = await stitchRunIds(runIds)
+  return { audioUrl: stitched.audio_url, segments }
+}
+
+async function handleCancelledGeneration(
+  tryRestitchChapter: () => Promise<boolean>
+): Promise<void> {
+  const completedCount = useStudioStore.getState().generationSession.completedIds.length
+  stopGenerationRun()
+  cancelPendingClientTts()
+  useStudioStore.getState().finalizeCancelledGeneration()
+  if (completedCount > 0) {
+    await tryRestitchChapter()
+  }
+  toast.message('Generation stopped')
+}
+
 export function useStudioActions() {
-  const generate = useGenerate()
   const clientTts = isClientTtsEnabled()
 
   const paragraphs = useStudioStore((s) => s.paragraphs)
@@ -91,13 +180,39 @@ export function useStudioActions() {
   const setPlayback = useStudioStore((s) => s.setPlayback)
   const resetPlayback = useStudioStore((s) => s.resetPlayback)
   const setParagraphGenerating = useStudioStore((s) => s.setParagraphGenerating)
-  const setParagraphDone = useStudioStore((s) => s.setParagraphDone)
+  const appendParagraphGeneration = useStudioStore((s) => s.appendParagraphGeneration)
+  const selectParagraphGeneration = useStudioStore((s) => s.selectParagraphGeneration)
+  const deleteParagraphGeneration = useStudioStore((s) => s.deleteParagraphGeneration)
   const setParagraphError = useStudioStore((s) => s.setParagraphError)
   const startGenerationSession = useStudioStore((s) => s.startGenerationSession)
   const setGenerationParagraphPhase = useStudioStore((s) => s.setGenerationParagraphPhase)
   const advanceGenerationSession = useStudioStore((s) => s.advanceGenerationSession)
   const finishGenerationSession = useStudioStore((s) => s.finishGenerationSession)
   const failGenerationSession = useStudioStore((s) => s.failGenerationSession)
+  const requestCancelGeneration = useStudioStore((s) => s.requestCancelGeneration)
+
+  const isCancelled = () => useStudioStore.getState().generationSession.cancelRequested
+
+  const tryRestitchChapter = useCallback(async () => {
+    const state = useStudioStore.getState()
+    if (!allTextParagraphsHaveActiveTake(state.paragraphs)) return false
+
+    try {
+      const stitched = await stitchChapterFromActiveTakes({
+        clientTts,
+        projectId: state.projectId,
+        chapterId: state.activeChapterId,
+        paragraphs: state.paragraphs,
+      })
+      if (!stitched) return false
+
+      revokeManagedBlobUrl(state.chapter.audioUrl)
+      setChapterDone(stitched.audioUrl, stitched.segments)
+      return true
+    } catch {
+      return false
+    }
+  }, [clientTts, setChapterDone])
 
   const handleGenerateChapter = useCallback(async () => {
     const state = useStudioStore.getState()
@@ -128,7 +243,7 @@ export function useStudioActions() {
     }
     resetPlayback()
 
-    const clientClips: Blob[] = []
+    const signal = beginGenerationRun()
 
     try {
       if (clientTts) {
@@ -136,25 +251,31 @@ export function useStudioActions() {
       }
 
       for (const paragraph of ready) {
+        assertGenerationNotCancelled(useStudioStore.getState().generationSession.cancelRequested)
+
         setParagraphGenerating(paragraph.id)
         setGenerationParagraphPhase('synthesizing')
 
         if (clientTts) {
-          const { blob } = await applyClientParagraphResult(paragraph, setParagraphDone, {
+          await applyClientParagraphResult(paragraph, appendParagraphGeneration, {
             projectId: state.projectId,
             align: hybridAlign,
             onAlignStart: () => setGenerationParagraphPhase('aligning'),
+            signal,
+            isCancelled,
           })
-          clientClips.push(blob)
         } else {
-          const result = await generate.mutateAsync([
-            turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale),
-          ])
-          await applyParagraphResult(paragraph, result, setParagraphDone)
+          const result = await generateConversation(
+            [turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale)],
+            { signal }
+          )
+          await applyParagraphResult(paragraph, result, appendParagraphGeneration)
         }
 
         advanceGenerationSession(paragraph.id)
       }
+
+      assertGenerationNotCancelled(useStudioStore.getState().generationSession.cancelRequested)
 
       const updatedParagraphs = useStudioStore.getState().paragraphs
       const segments = buildChapterSegments(
@@ -162,7 +283,14 @@ export function useStudioActions() {
       )
 
       if (clientTts) {
-        const stitched = await clientStitchParagraphs(clientClips, {
+        const blobs: Blob[] = []
+        for (const paragraph of ready) {
+          const updated = updatedParagraphs.find((p) => p.id === paragraph.id)
+          if (!updated?.audioUrl) continue
+          const response = await fetch(updated.audioUrl)
+          blobs.push(await response.blob())
+        }
+        const stitched = await clientStitchParagraphs(blobs, {
           projectId: state.projectId,
           chapterId: state.activeChapterId,
         })
@@ -173,14 +301,15 @@ export function useStudioActions() {
           const updated = updatedParagraphs.find((p) => p.id === paragraph.id)
           const audioUrl = updated?.audioUrl
           if (!audioUrl) continue
-          const match = audioUrl.match(/\/api\/audio\/([0-9a-f]{8})$/)
-          if (match) runIds.push(match[1])
+          const runId = extractRunId(audioUrl)
+          if (runId) runIds.push(runId)
         }
-        const stitched = await stitchRunIds(runIds)
+        const stitched = await stitchRunIds(runIds, { signal })
         setChapterDone(stitched.audio_url, segments)
       }
 
       finishGenerationSession()
+      stopGenerationRun()
 
       setPlayback({
         mode: 'chapter',
@@ -198,6 +327,11 @@ export function useStudioActions() {
         ready.length === 1 ? 'Paragraph generated' : `Generated ${ready.length} paragraphs`
       )
     } catch (err) {
+      if (isGenerationCancelled(err)) {
+        await handleCancelledGeneration(tryRestitchChapter)
+        return
+      }
+
       const message = err instanceof Error ? err.message : 'Generation failed'
       const session = useStudioStore.getState().generationSession
       const failedDuringParagraph = session.completedIds.length < ready.length
@@ -210,17 +344,17 @@ export function useStudioActions() {
       }
       setChapterError(message)
       failGenerationSession(failedId, message)
+      stopGenerationRun()
       toast.error(message)
     }
   }, [
     clientTts,
-    generate,
     paragraphs,
     resetPlayback,
     setChapterDone,
     setChapterError,
     setChapterGenerating,
-    setParagraphDone,
+    appendParagraphGeneration,
     setParagraphError,
     setParagraphGenerating,
     setGenerationParagraphPhase,
@@ -229,6 +363,7 @@ export function useStudioActions() {
     finishGenerationSession,
     failGenerationSession,
     setPlayback,
+    tryRestitchChapter,
   ])
 
   const handleGenerateSelection = useCallback(async () => {
@@ -255,34 +390,50 @@ export function useStudioActions() {
     startGenerationSession([paragraph.id])
     setParagraphGenerating(paragraph.id)
     setGenerationParagraphPhase('synthesizing')
+    const signal = beginGenerationRun()
     try {
       if (clientTts) {
-        await applyClientParagraphResult(paragraph, setParagraphDone, {
+        await applyClientParagraphResult(paragraph, appendParagraphGeneration, {
           projectId: state.projectId,
           align: hybridAlign,
           onAlignStart: () => setGenerationParagraphPhase('aligning'),
+          signal,
+          isCancelled,
         })
       } else {
-        const result = await generate.mutateAsync([
-          turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale),
-        ])
-        await applyParagraphResult(paragraph, result, setParagraphDone)
+        const result = await generateConversation(
+          [turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale)],
+          { signal }
+        )
+        await applyParagraphResult(paragraph, result, appendParagraphGeneration)
       }
       advanceGenerationSession(paragraph.id)
       finishGenerationSession()
+      stopGenerationRun()
+
+      const restitched = await tryRestitchChapter()
+      if (!restitched && state.chapter.status === 'done') {
+        useStudioStore.getState().invalidateChapterAudio()
+      }
+
       toast.success('Paragraph generated')
     } catch (err) {
+      if (isGenerationCancelled(err)) {
+        await handleCancelledGeneration(tryRestitchChapter)
+        return
+      }
+
       const message = err instanceof Error ? err.message : 'Generation failed'
       setParagraphError(paragraph.id, message)
       failGenerationSession(paragraph.id, message)
+      stopGenerationRun()
       toast.error(message)
     }
   }, [
     clientTts,
-    generate,
     paragraphs,
     selectedParagraphId,
-    setParagraphDone,
+    appendParagraphGeneration,
     setParagraphError,
     setParagraphGenerating,
     setGenerationParagraphPhase,
@@ -290,7 +441,50 @@ export function useStudioActions() {
     advanceGenerationSession,
     finishGenerationSession,
     failGenerationSession,
+    tryRestitchChapter,
   ])
+
+  const handleStopGeneration = useCallback(() => {
+    if (!useStudioStore.getState().generationSession.active) return
+    requestCancelGeneration()
+    stopGenerationRun()
+    cancelPendingClientTts()
+  }, [requestCancelGeneration])
+
+  const handleSelectGeneration = useCallback(
+    async (paragraphId: string, generationId: string) => {
+      const state = useStudioStore.getState()
+      if (state.generationSession.active || state.chapter.status === 'generating') {
+        toast.error('Finish chapter generation before switching takes')
+        return
+      }
+
+      selectParagraphGeneration(paragraphId, generationId)
+      const restitched = await tryRestitchChapter()
+      if (!restitched && state.chapter.status === 'done') {
+        useStudioStore.getState().invalidateChapterAudio()
+      }
+    },
+    [selectParagraphGeneration, tryRestitchChapter]
+  )
+
+  const handleDeleteGeneration = useCallback(
+    async (paragraphId: string, generationId: string) => {
+      const state = useStudioStore.getState()
+      if (state.generationSession.active || state.chapter.status === 'generating') {
+        toast.error('Finish chapter generation before deleting takes')
+        return
+      }
+
+      deleteParagraphGeneration(paragraphId, generationId)
+      const restitched = await tryRestitchChapter()
+      if (!restitched && state.chapter.status === 'done') {
+        useStudioStore.getState().invalidateChapterAudio()
+      }
+      toast.success('Take deleted')
+    },
+    [deleteParagraphGeneration, tryRestitchChapter]
+  )
 
   const handlePlayParagraph = useCallback(
     (id: string, modeOverride?: 'selection' | 'until-end') => {
@@ -340,6 +534,14 @@ export function useStudioActions() {
     },
     [paragraphs, setPlayback, studioPlayMode]
   )
+
+  const handlePlayGenerationTake = useCallback((paragraphId: string, generationId: string) => {
+    const paragraph = useStudioStore.getState().paragraphs.find((p) => p.id === paragraphId)
+    const generation = paragraph?.generations?.find((g) => g.id === generationId)
+    if (!generation?.audioUrl) return
+    const audio = new Audio(generation.audioUrl)
+    void audio.play()
+  }, [])
 
   const handlePlaySelection = useCallback(() => {
     if (!selectedParagraphId) {
@@ -411,6 +613,10 @@ export function useStudioActions() {
   return {
     handleGenerateChapter,
     handleGenerateSelection,
+    handleStopGeneration,
+    handleSelectGeneration,
+    handleDeleteGeneration,
+    handlePlayGenerationTake,
     handlePlayParagraph,
     handlePlaySelection,
     handlePlayAll,

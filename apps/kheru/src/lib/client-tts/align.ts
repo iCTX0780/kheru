@@ -3,10 +3,12 @@ import type { WordTiming } from '@/lib/playback-words'
 /** Align client-synthesized audio via server Gentle proxy. Returns null when unavailable. */
 export async function alignParagraphAudio(
   blob: Blob,
-  transcript: string
+  transcript: string,
+  signal?: AbortSignal
 ): Promise<WordTiming[] | null> {
   const trimmed = transcript.trim()
   if (!trimmed) return null
+  if (signal?.aborted) return null
 
   const form = new FormData()
   form.append('audio', blob, 'audio.wav')
@@ -16,6 +18,7 @@ export async function alignParagraphAudio(
     const response = await fetch('/api/align', {
       method: 'POST',
       body: form,
+      signal,
     })
 
     if (response.status === 503) return null

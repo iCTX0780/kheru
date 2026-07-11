@@ -13,18 +13,41 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { VoicePicker } from '@/components/VoicePicker'
 import { paragraphStatusLabel } from '@/lib/paragraph-status'
+import { draftDiffersFromGeneration, MAX_PARAGRAPH_GENERATIONS, resolveActiveGeneration } from '@/lib/paragraph-generations'
 import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import { getCachedServerCapabilities } from '@/lib/client-tts/capabilities'
 import { fromDisplaySpeed, SPEED_MAX, SPEED_MIN, toDisplaySpeed } from '@/lib/speed'
 import { useStudioStore } from '@/stores/studio'
-import { ChevronDown, Play, Sparkles } from 'lucide-react'
+import { ChevronDown, Play, Sparkles, Trash2 } from 'lucide-react'
 import type { VoiceInfo } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 interface ContextualInspectorProps {
   voices: VoiceInfo[]
   isLoadingVoices: boolean
   onGenerateSelection: () => void
   onPlaySelection: () => void
+  onSelectGeneration: (paragraphId: string, generationId: string) => void
+  onPlayGenerationTake: (paragraphId: string, generationId: string) => void
+  onDeleteGeneration: (paragraphId: string, generationId: string) => void
+}
+
+function formatTakeTime(createdAt: string): string {
+  const date = new Date(createdAt)
+  const now = Date.now()
+  const diffMs = now - date.getTime()
+  const diffMin = Math.floor(diffMs / 60_000)
+  if (diffMin < 1) return 'Just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHours = Math.floor(diffMin / 60)
+  if (diffHours < 24) return `${diffHours}h ago`
+  return date.toLocaleDateString()
+}
+
+function truncateText(text: string, max = 60): string {
+  const trimmed = text.trim()
+  if (trimmed.length <= max) return trimmed
+  return `${trimmed.slice(0, max)}…`
 }
 
 export function ContextualInspector({
@@ -32,11 +55,17 @@ export function ContextualInspector({
   isLoadingVoices,
   onGenerateSelection,
   onPlaySelection,
+  onSelectGeneration,
+  onPlayGenerationTake,
+  onDeleteGeneration,
 }: ContextualInspectorProps) {
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
   const updateParagraph = useStudioStore((s) => s.updateParagraph)
   const generationParagraphPhase = useStudioStore((s) => s.generationSession.paragraphPhase)
+  const generationLocked = useStudioStore(
+    (s) => s.generationSession.active || s.chapter.status === 'generating'
+  )
 
   const paragraph = paragraphs.find((p) => p.id === selectedParagraphId)
 
@@ -55,10 +84,14 @@ export function ContextualInspector({
 
   const isGenerating = paragraph.status === 'generating'
   const canPlay = paragraph.status === 'done' && paragraph.audioUrl
-  const generateLabel = paragraph.status === 'done' ? 'Regenerate' : 'Generate'
+  const generateLabel = paragraph.generations?.length ? 'Regenerate' : 'Generate'
   const clientTts = isClientTtsEnabled()
   const gentleAvailable = getCachedServerCapabilities()?.gentle ?? false
   const hasGentleTimings = Boolean(paragraph.wordTimings?.length)
+  const activeGeneration = resolveActiveGeneration(paragraph)
+  const draftChangedSinceActive =
+    activeGeneration && draftDiffersFromGeneration(paragraph, activeGeneration)
+  const takes = [...(paragraph.generations ?? [])].reverse()
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden border-l border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -143,8 +176,94 @@ export function ContextualInspector({
 
           {paragraph.status === 'stale' && (
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              Content changed — regenerate to update audio.
+              Draft changed since active take — regenerate to create a new take from current text.
             </p>
+          )}
+
+          {draftChangedSinceActive && paragraph.status === 'done' && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Draft differs from the active take snapshot.
+            </p>
+          )}
+
+          {takes.length > 0 && (
+            <Collapsible defaultOpen={takes.length > 1}>
+              <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md px-1 py-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+                Takes ({takes.length}/{MAX_PARAGRAPH_GENERATIONS})
+                <ChevronDown className="size-3.5" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="flex flex-col gap-2 pt-2">
+                <p className="text-[0.65rem] text-muted-foreground">
+                  Up to {MAX_PARAGRAPH_GENERATIONS} takes per paragraph. Regenerating removes the oldest
+                  when full.
+                </p>
+                {takes.map((take, index) => {
+                  const isActive = take.id === paragraph.activeGenerationId
+                  const takeNumber = takes.length - index
+                  return (
+                    <div
+                      key={take.id}
+                      className={cn(
+                        'flex flex-col gap-2 rounded-md border p-2',
+                        isActive ? 'border-primary/50 bg-primary/5' : 'border-border'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium">Take {takeNumber}</span>
+                            {isActive && (
+                              <Badge variant="secondary" className="text-[0.6rem]">
+                                Active
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-[0.65rem] text-muted-foreground">
+                            {formatTakeTime(take.createdAt)} · {take.duration.toFixed(1)}s
+                          </p>
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            {truncateText(take.textSnapshot)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label={`Preview take ${takeNumber}`}
+                            onClick={() => onPlayGenerationTake(paragraph.id, take.id)}
+                          >
+                            <Play />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label={`Delete take ${takeNumber}`}
+                            disabled={generationLocked}
+                            onClick={() => void onDeleteGeneration(paragraph.id, take.id)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+                      </div>
+                      {!isActive && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={generationLocked}
+                          onClick={() => void onSelectGeneration(paragraph.id, take.id)}
+                        >
+                          Use this take
+                        </Button>
+                      )}
+                    </div>
+                  )
+                })}
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {paragraph.status === 'done' && hasGentleTimings && (

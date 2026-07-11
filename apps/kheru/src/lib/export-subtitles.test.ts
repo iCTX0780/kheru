@@ -12,6 +12,8 @@ function paragraph(id: string, text: string): Paragraph {
     duration: 2,
     wordTimings: null,
     status: 'done',
+    generations: [],
+    activeGenerationId: null,
   }
 }
 

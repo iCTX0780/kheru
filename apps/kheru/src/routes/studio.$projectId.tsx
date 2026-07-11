@@ -8,6 +8,8 @@ import { useStudioActions } from '@/hooks/use-studio-actions'
 import { useStudioStore } from '@/stores/studio'
 import { useVoices } from '@/lib/api'
 import { fetchServerCapabilities } from '@/lib/client-tts/capabilities'
+import { warmClientTtsEngine } from '@/lib/client-tts/engine'
+import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import { DEFAULT_VOICE_ID } from '@/lib/voice-catalog'
 import { playableParagraphs } from '@/lib/playback-segments'
 import { getProjectFromIDB } from '@/lib/project-db'
@@ -45,6 +47,9 @@ function StudioPage() {
   const {
     handleGenerateChapter,
     handleGenerateSelection,
+    handleSelectGeneration,
+    handleDeleteGeneration,
+    handlePlayGenerationTake,
     handlePlayParagraph,
     handlePlaySelection,
     handlePlayAll,
@@ -62,6 +67,11 @@ function StudioPage() {
   useEffect(() => {
     if (!hydrated) return
     void fetchServerCapabilities()
+    if (isClientTtsEnabled()) {
+      void warmClientTtsEngine().catch((err) => {
+        console.warn('Client TTS warm-up failed:', err)
+      })
+    }
   }, [hydrated])
 
   useEffect(() => {
@@ -120,6 +130,13 @@ function StudioPage() {
             onPlayParagraph={handlePlayParagraph}
             onPlayAll={handlePlayAll}
             onPlaySelection={handlePlaySelection}
+            onSelectGeneration={(paragraphId, generationId) =>
+              void handleSelectGeneration(paragraphId, generationId)
+            }
+            onPlayGenerationTake={handlePlayGenerationTake}
+            onDeleteGeneration={(paragraphId, generationId) =>
+              void handleDeleteGeneration(paragraphId, generationId)
+            }
             onOpenShortcuts={() => setShortcutsOpen(true)}
           />
         </Suspense>

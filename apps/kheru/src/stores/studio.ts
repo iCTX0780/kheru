@@ -2,6 +2,17 @@ import { create } from 'zustand'
 import type { WordTiming } from '@/lib/playback-words'
 import { revokeManagedBlobUrl } from '@/lib/client-tts/blob-registry'
 import type { ImportBlock } from '@/lib/parse-script'
+import {
+  appendGenerationWithLimit,
+  computeParagraphStatus,
+  createGenerationFromParagraph,
+  draftDiffersFromGeneration,
+  migrateParagraphToV2,
+  resolveActiveGeneration,
+  syncParagraphFromActiveGeneration,
+} from '@/lib/paragraph-generations'
+import { deleteParagraphGenerationAudioOpfs } from '@/lib/client-tts/opfs'
+import { releaseChapterAudioResources } from '@/lib/chapter-cleanup'
 import type { ProjectChapter } from '@/lib/project-db'
 import { createDefaultChapter, syncChapterSnapshot } from '@/lib/project-db'
 import { DEFAULT_VOICE_ID, lengthScaleForSpeaker, voiceForSpeaker, VOICE_BY_ID } from '@/lib/voice-catalog'
@@ -10,6 +21,20 @@ export type ParagraphStatus = 'idle' | 'generating' | 'done' | 'stale' | 'error'
 export type ChapterStatus = 'idle' | 'generating' | 'done' | 'stale' | 'error'
 export type PlaybackMode = 'paragraph' | 'chapter' | 'sequence' | null
 export type StudioPlayMode = 'selection' | 'until-end'
+
+export interface ParagraphGeneration {
+  id: string
+  createdAt: string
+  textSnapshot: string
+  voice: string
+  lengthScale: number
+  speaker?: string
+  audioUrl: string
+  duration: number
+  wordTimings: WordTiming[] | null
+  /** Stable ref for OPFS / server audio (e.g. runId or generation id). */
+  audioRef?: string
+}
 
 export interface Paragraph {
   id: string
@@ -24,6 +49,8 @@ export interface Paragraph {
   wordTimings: WordTiming[] | null
   status: ParagraphStatus
   error?: string
+  generations: ParagraphGeneration[]
+  activeGenerationId: string | null
 }
 
 export interface PlaybackSegment {
@@ -66,6 +93,7 @@ export interface GenerationSession {
   estimatedTotalMs: number | null
   /** Hybrid client TTS: synthesizing vs Gentle align step for current paragraph */
   paragraphPhase: 'synthesizing' | 'aligning' | null
+  cancelRequested: boolean
   failedId?: string
   error?: string
 }
@@ -78,6 +106,7 @@ const initialGenerationSession: GenerationSession = {
   startedAt: null,
   estimatedTotalMs: null,
   paragraphPhase: null,
+  cancelRequested: false,
 }
 
 export interface StudioStore {
@@ -102,6 +131,7 @@ export interface StudioStore {
   setChapterTitle: (title: string) => void
   addChapter: () => void
   switchChapter: (chapterId: string) => void
+  deleteChapter: (chapterId: string) => boolean
   loadProject: (project: {
     id: string
     title: string
@@ -109,7 +139,7 @@ export interface StudioStore {
     activeChapterId: string
   }) => void
   addParagraph: (afterId?: string) => void
-  importParagraphs: (blocks: ImportBlock[]) => void
+  importParagraphs: (blocks: ImportBlock[], speakerVoiceMap?: Record<string, string>) => void
   updateParagraph: (id: string, updates: Partial<Pick<Paragraph, 'text' | 'voice' | 'lengthScale'>>) => void
   removeParagraph: (id: string) => void
   moveParagraph: (id: string, direction: 'up' | 'down') => void
@@ -117,6 +147,15 @@ export interface StudioStore {
   setParagraphGenerating: (id: string) => void
   setParagraphsGenerating: (ids: string[]) => void
   setParagraphDone: (id: string, audioUrl: string, duration: number, wordTimings?: WordTiming[] | null) => void
+  appendParagraphGeneration: (
+    id: string,
+    audioUrl: string,
+    duration: number,
+    wordTimings?: WordTiming[] | null,
+    audioRef?: string
+  ) => void
+  selectParagraphGeneration: (paragraphId: string, generationId: string) => void
+  deleteParagraphGeneration: (paragraphId: string, generationId: string) => void
   applyParagraphWordTimings: (items: { id: string; wordTimings: WordTiming[] }[]) => void
   setParagraphError: (id: string, message: string) => void
 
@@ -136,6 +175,8 @@ export interface StudioStore {
   advanceGenerationSession: (completedId: string) => void
   finishGenerationSession: () => void
   failGenerationSession: (failedId: string | undefined, error: string) => void
+  requestCancelGeneration: () => void
+  finalizeCancelledGeneration: () => void
 }
 
 function createParagraph(voice: string): Paragraph {
@@ -149,6 +190,8 @@ function createParagraph(voice: string): Paragraph {
     duration: null,
     wordTimings: null,
     status: 'idle',
+    generations: [],
+    activeGenerationId: null,
   }
 }
 
@@ -169,19 +212,24 @@ function markChapterStale(chapter: Chapter): Chapter {
 
 function paragraphAfterEdit(paragraph: Paragraph, updates: Partial<Pick<Paragraph, 'text' | 'voice' | 'lengthScale'>>): Paragraph {
   const next = { ...paragraph, ...updates }
-  if (paragraph.status === 'done' || paragraph.status === 'stale') {
-    const contentChanged =
-      (updates.text !== undefined && updates.text !== paragraph.text) ||
-      (updates.voice !== undefined && updates.voice !== paragraph.voice) ||
-      (updates.lengthScale !== undefined && updates.lengthScale !== paragraph.lengthScale)
-    if (contentChanged) {
-      next.status = 'stale'
-      next.audioUrl = paragraph.audioUrl
-      next.duration = paragraph.duration
-      next.wordTimings = paragraph.wordTimings
-    }
+  const active = resolveActiveGeneration(paragraph)
+  if (!active) return next
+
+  const contentChanged =
+    (updates.text !== undefined && updates.text !== paragraph.text) ||
+    (updates.voice !== undefined && updates.voice !== paragraph.voice) ||
+    (updates.lengthScale !== undefined && updates.lengthScale !== paragraph.lengthScale)
+
+  if (!contentChanged) return next
+
+  const status = draftDiffersFromGeneration(next, active) ? 'stale' : 'done'
+  return {
+    ...next,
+    status,
+    audioUrl: active.audioUrl,
+    duration: active.duration,
+    wordTimings: active.wordTimings,
   }
-  return next
 }
 
 const initialPlayback: PlaybackState = {
@@ -222,21 +270,24 @@ function withSyncedChapters<T extends {
 }
 
 function normalizeParagraph(paragraph: Paragraph): Paragraph {
+  const migrated = migrateParagraphToV2(paragraph)
   const normalized: Paragraph = {
-    ...paragraph,
-    text: typeof paragraph.text === 'string' ? paragraph.text : '',
-    wordTimings: paragraph.wordTimings ?? null,
+    ...migrated,
+    text: typeof migrated.text === 'string' ? migrated.text : '',
+    wordTimings: migrated.wordTimings ?? null,
+    generations: migrated.generations ?? [],
+    activeGenerationId: migrated.activeGenerationId ?? null,
   }
 
   // Orphaned in-flight generation cannot resume after reload.
   if (normalized.status === 'generating') {
     if (normalized.audioUrl && normalized.duration) {
-      return { ...normalized, status: 'done', error: undefined }
+      return syncParagraphFromActiveGeneration({ ...normalized, status: 'done', error: undefined })
     }
     return { ...normalized, status: 'idle', error: undefined }
   }
 
-  return normalized
+  return syncParagraphFromActiveGeneration(normalized)
 }
 
 export const useStudioStore = create<StudioStore>()((set) => ({
@@ -333,6 +384,45 @@ export const useStudioStore = create<StudioStore>()((set) => ({
       }
     }),
 
+  deleteChapter: (chapterId) => {
+    let deleted = false
+    set((state) => {
+      const synced = syncChapters(
+        state.chapters,
+        state.activeChapterId,
+        state.chapterTitle,
+        state.paragraphs,
+        state.chapter
+      )
+      if (synced.length <= 1) return state
+
+      const target = synced.find((c) => c.id === chapterId)
+      if (!target) return state
+
+      releaseChapterAudioResources(state.projectId, target)
+      const remaining = synced.filter((c) => c.id !== chapterId)
+      deleted = true
+
+      if (chapterId !== state.activeChapterId) {
+        return { ...state, chapters: remaining }
+      }
+
+      const deletedIndex = synced.findIndex((c) => c.id === chapterId)
+      const next = remaining[Math.min(deletedIndex, remaining.length - 1)]
+      return {
+        chapters: remaining,
+        activeChapterId: next.id,
+        chapterTitle: next.title,
+        paragraphs: next.paragraphs,
+        chapter: next.chapter,
+        playback: initialPlayback,
+        generationSession: initialGenerationSession,
+        selectedParagraphId: next.paragraphs[0]?.id ?? null,
+      }
+    })
+    return deleted
+  },
+
   setPreviewPlaybackRate: (rate) =>
     set((state) => ({
       playback: { ...state.playback, previewPlaybackRate: rate },
@@ -381,13 +471,13 @@ export const useStudioStore = create<StudioStore>()((set) => ({
       })
     }),
 
-  importParagraphs: (blocks) =>
+  importParagraphs: (blocks, speakerVoiceMap) =>
     set((state) => {
       const fallback = state.voices[0] || DEFAULT_VOICE_ID
       const imported = blocks
         .filter((block) => block.text.trim())
         .map((block) => {
-          const voice = voiceForSpeaker(block.speaker, fallback, state.voices)
+          const voice = voiceForSpeaker(block.speaker, fallback, state.voices, speakerVoiceMap)
           const voiceDefault = VOICE_BY_ID[voice]?.defaultLengthScale ?? 1.0
           return {
             ...createParagraph(voice),
@@ -416,6 +506,9 @@ export const useStudioStore = create<StudioStore>()((set) => ({
     set((state) => {
       const removed = state.paragraphs.find((p) => p.id === id)
       revokeManagedBlobUrl(removed?.audioUrl)
+      for (const gen of removed?.generations ?? []) {
+        revokeManagedBlobUrl(gen.audioUrl)
+      }
       const paragraphs = state.paragraphs.filter((p) => p.id !== id)
       const nextParagraphs =
         paragraphs.length > 0 ? paragraphs : state.voices[0] ? [createParagraph(state.voices[0])] : []
@@ -461,25 +554,117 @@ export const useStudioStore = create<StudioStore>()((set) => ({
     }),
 
   setParagraphDone: (id, audioUrl, duration, wordTimings = null) =>
-    set((state) =>
-      withSyncedChapters(state, {
-        paragraphs: state.paragraphs.map((p) =>
-          p.id === id
-            ? { ...p, status: 'done', audioUrl, duration, wordTimings, error: undefined }
-            : p
-        ),
+    set((state) => {
+      const paragraph = state.paragraphs.find((p) => p.id === id)
+      if (!paragraph) return state
+      const generation = createGenerationFromParagraph(paragraph, audioUrl, duration, wordTimings)
+      const { generations, evicted } = appendGenerationWithLimit(paragraph.generations ?? [], generation)
+      for (const removed of evicted) {
+        revokeManagedBlobUrl(removed.audioUrl)
+        void deleteParagraphGenerationAudioOpfs(state.projectId, id, removed.id)
+      }
+      const updated = syncParagraphFromActiveGeneration({
+        ...paragraph,
+        generations,
+        activeGenerationId: generation.id,
+        status: 'done',
+        error: undefined,
       })
-    ),
+      return withSyncedChapters(state, {
+        paragraphs: state.paragraphs.map((p) => (p.id === id ? updated : p)),
+        chapter: markChapterStale(state.chapter),
+      })
+    }),
+
+  appendParagraphGeneration: (id, audioUrl, duration, wordTimings = null, audioRef) =>
+    set((state) => {
+      const paragraph = state.paragraphs.find((p) => p.id === id)
+      if (!paragraph) return state
+      const generation = createGenerationFromParagraph(
+        paragraph,
+        audioUrl,
+        duration,
+        wordTimings,
+        audioRef
+      )
+      const { generations, evicted } = appendGenerationWithLimit(paragraph.generations ?? [], generation)
+      for (const removed of evicted) {
+        revokeManagedBlobUrl(removed.audioUrl)
+        void deleteParagraphGenerationAudioOpfs(state.projectId, id, removed.id)
+      }
+      const updated = syncParagraphFromActiveGeneration({
+        ...paragraph,
+        generations,
+        activeGenerationId: generation.id,
+        status: 'done',
+        error: undefined,
+      })
+      return withSyncedChapters(state, {
+        paragraphs: state.paragraphs.map((p) => (p.id === id ? updated : p)),
+        chapter: markChapterStale(state.chapter),
+      })
+    }),
+
+  selectParagraphGeneration: (paragraphId, generationId) =>
+    set((state) => {
+      const paragraph = state.paragraphs.find((p) => p.id === paragraphId)
+      if (!paragraph) return state
+      const generation = paragraph.generations?.find((g) => g.id === generationId)
+      if (!generation) return state
+
+      const updated = syncParagraphFromActiveGeneration({
+        ...paragraph,
+        activeGenerationId: generationId,
+        status: computeParagraphStatus(paragraph, generation),
+      })
+      return withSyncedChapters(state, {
+        paragraphs: state.paragraphs.map((p) => (p.id === paragraphId ? updated : p)),
+        chapter: markChapterStale(state.chapter),
+      })
+    }),
+
+  deleteParagraphGeneration: (paragraphId, generationId) =>
+    set((state) => {
+      const paragraph = state.paragraphs.find((p) => p.id === paragraphId)
+      if (!paragraph) return state
+      const generation = paragraph.generations?.find((g) => g.id === generationId)
+      if (!generation) return state
+
+      revokeManagedBlobUrl(generation.audioUrl)
+      void deleteParagraphGenerationAudioOpfs(state.projectId, paragraphId, generationId)
+
+      const generations = (paragraph.generations ?? []).filter((g) => g.id !== generationId)
+      let activeGenerationId = paragraph.activeGenerationId
+      if (activeGenerationId === generationId) {
+        activeGenerationId = generations.at(-1)?.id ?? null
+      }
+
+      const updated = syncParagraphFromActiveGeneration({
+        ...paragraph,
+        generations,
+        activeGenerationId,
+        error: undefined,
+      })
+      return withSyncedChapters(state, {
+        paragraphs: state.paragraphs.map((p) => (p.id === paragraphId ? updated : p)),
+        chapter: markChapterStale(state.chapter),
+      })
+    }),
 
   applyParagraphWordTimings: (items) =>
     set((state) => {
       const byId = new Map(items.map((item) => [item.id, item.wordTimings]))
-      return {
+      return withSyncedChapters(state, {
         paragraphs: state.paragraphs.map((p) => {
           const wordTimings = byId.get(p.id)
-          return wordTimings ? { ...p, wordTimings } : p
+          if (!wordTimings) return p
+          const activeId = p.activeGenerationId
+          const generations = (p.generations ?? []).map((g) =>
+            g.id === activeId ? { ...g, wordTimings } : g
+          )
+          return syncParagraphFromActiveGeneration({ ...p, generations, wordTimings })
         }),
-      }
+      })
     }),
 
   setParagraphError: (id, message) =>
@@ -512,13 +697,19 @@ export const useStudioStore = create<StudioStore>()((set) => ({
     set((state) => {
       const paragraph = state.paragraphs.find((p) => p.id === id)
       revokeManagedBlobUrl(paragraph?.audioUrl)
-      return {
+      return withSyncedChapters(state, {
         paragraphs: state.paragraphs.map((p) =>
           p.id === id
-            ? { ...p, status: 'stale', audioUrl: null, duration: null, wordTimings: null }
+            ? syncParagraphFromActiveGeneration({
+                ...p,
+                status: p.generations?.length ? 'stale' : 'idle',
+                audioUrl: null,
+                duration: null,
+                wordTimings: null,
+              })
             : p
         ),
-      }
+      })
     }),
 
   invalidateChapterAudio: () =>
@@ -551,6 +742,7 @@ export const useStudioStore = create<StudioStore>()((set) => ({
         startedAt: Date.now(),
         estimatedTotalMs: estimatedTotalMs ?? null,
         paragraphPhase: 'synthesizing',
+        cancelRequested: false,
       },
     }),
 
@@ -590,4 +782,43 @@ export const useStudioStore = create<StudioStore>()((set) => ({
         error,
       },
     })),
+
+  requestCancelGeneration: () =>
+    set((state) => ({
+      generationSession: {
+        ...state.generationSession,
+        cancelRequested: true,
+      },
+    })),
+
+  finalizeCancelledGeneration: () =>
+    set((state) => {
+      const session = state.generationSession
+      const paragraphs = state.paragraphs.map((paragraph) => {
+        if (paragraph.status !== 'generating') return paragraph
+        return syncParagraphFromActiveGeneration({
+          ...paragraph,
+          error: undefined,
+        })
+      })
+
+      let chapter = state.chapter
+      if (chapter.status === 'generating') {
+        if (session.completedIds.length > 0) {
+          chapter = { ...chapter, status: 'stale', error: undefined }
+        } else {
+          chapter = {
+            ...chapter,
+            status: chapter.audioUrl ? 'stale' : 'idle',
+            error: undefined,
+          }
+        }
+      }
+
+      return withSyncedChapters(state, {
+        paragraphs,
+        chapter,
+        generationSession: initialGenerationSession,
+      })
+    }),
 }))

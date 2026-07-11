@@ -3,7 +3,7 @@ import type { Chapter, Paragraph } from '@/stores/studio'
 
 export const PROJECT_DB_NAME = 'kheru-db'
 export const PROJECT_DB_VERSION = 1
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 export interface ProjectChapter {
   id: string
@@ -129,6 +129,8 @@ export function createDefaultChapter(title = 'Chapter 1', voice = ''): ProjectCh
             duration: null,
             wordTimings: null,
             status: 'idle',
+            generations: [],
+            activeGenerationId: null,
           },
         ]
       : [],

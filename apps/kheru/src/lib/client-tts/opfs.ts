@@ -12,12 +12,17 @@ async function ensureDir(parent: FileSystemDirectoryHandle, name: string): Promi
   return parent.getDirectoryHandle(name, { create: true })
 }
 
-async function paragraphPath(projectId: string, paragraphId: string): Promise<FileSystemFileHandle> {
+async function paragraphGenerationPath(
+  projectId: string,
+  paragraphId: string,
+  generationId: string
+): Promise<FileSystemFileHandle> {
   const root = await getRootDir()
   const appDir = await ensureDir(root, OPFS_ROOT)
   const projectDir = await ensureDir(appDir, projectId)
   const paragraphsDir = await ensureDir(projectDir, 'paragraphs')
-  return paragraphsDir.getFileHandle(`${paragraphId}.wav`, { create: true })
+  const paragraphDir = await ensureDir(paragraphsDir, paragraphId)
+  return paragraphDir.getFileHandle(`${generationId}.wav`, { create: true })
 }
 
 async function chapterPath(projectId: string, chapterId: string): Promise<FileSystemFileHandle> {
@@ -35,16 +40,37 @@ export function opfsAudioSupported(): boolean {
 export async function saveParagraphAudioOpfs(
   projectId: string,
   paragraphId: string,
+  generationId: string,
   blob: Blob
 ): Promise<void> {
   if (!isOpfsAvailable()) return
-  const handle = await paragraphPath(projectId, paragraphId)
+  const handle = await paragraphGenerationPath(projectId, paragraphId, generationId)
   const writable = await handle.createWritable()
   await writable.write(blob)
   await writable.close()
 }
 
 export async function loadParagraphAudioOpfs(
+  projectId: string,
+  paragraphId: string,
+  generationId: string
+): Promise<Blob | null> {
+  if (!isOpfsAvailable()) return null
+  try {
+    const root = await getRootDir()
+    const appDir = await root.getDirectoryHandle(OPFS_ROOT)
+    const projectDir = await appDir.getDirectoryHandle(projectId)
+    const paragraphsDir = await projectDir.getDirectoryHandle('paragraphs')
+    const paragraphDir = await paragraphsDir.getDirectoryHandle(paragraphId)
+    const handle = await paragraphDir.getFileHandle(`${generationId}.wav`)
+    return handle.getFile()
+  } catch {
+    return null
+  }
+}
+
+/** Legacy flat path: paragraphs/{paragraphId}.wav (pre-v2). */
+export async function loadLegacyParagraphAudioOpfs(
   projectId: string,
   paragraphId: string
 ): Promise<Blob | null> {
@@ -55,8 +81,7 @@ export async function loadParagraphAudioOpfs(
     const projectDir = await appDir.getDirectoryHandle(projectId)
     const paragraphsDir = await projectDir.getDirectoryHandle('paragraphs')
     const handle = await paragraphsDir.getFileHandle(`${paragraphId}.wav`)
-    const file = await handle.getFile()
-    return file
+    return handle.getFile()
   } catch {
     return null
   }
@@ -91,6 +116,37 @@ export async function loadChapterAudioOpfs(
   }
 }
 
+export async function deleteChapterAudioOpfs(projectId: string, chapterId: string): Promise<void> {
+  if (!isOpfsAvailable()) return
+  try {
+    const root = await getRootDir()
+    const appDir = await root.getDirectoryHandle(OPFS_ROOT)
+    const projectDir = await appDir.getDirectoryHandle(projectId)
+    const chaptersDir = await projectDir.getDirectoryHandle('chapters')
+    await chaptersDir.removeEntry(`${chapterId}.wav`)
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function deleteParagraphGenerationAudioOpfs(
+  projectId: string,
+  paragraphId: string,
+  generationId: string
+): Promise<void> {
+  if (!isOpfsAvailable()) return
+  try {
+    const root = await getRootDir()
+    const appDir = await root.getDirectoryHandle(OPFS_ROOT)
+    const projectDir = await appDir.getDirectoryHandle(projectId)
+    const paragraphsDir = await projectDir.getDirectoryHandle('paragraphs')
+    const paragraphDir = await paragraphsDir.getDirectoryHandle(paragraphId)
+    await paragraphDir.removeEntry(`${generationId}.wav`)
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function deleteParagraphAudioOpfs(projectId: string, paragraphId: string): Promise<void> {
   if (!isOpfsAvailable()) return
   try {
@@ -99,6 +155,15 @@ export async function deleteParagraphAudioOpfs(projectId: string, paragraphId: s
     const projectDir = await appDir.getDirectoryHandle(projectId)
     const paragraphsDir = await projectDir.getDirectoryHandle('paragraphs')
     await paragraphsDir.removeEntry(`${paragraphId}.wav`)
+  } catch {
+    /* ignore legacy flat file */
+  }
+  try {
+    const root = await getRootDir()
+    const appDir = await root.getDirectoryHandle(OPFS_ROOT)
+    const projectDir = await appDir.getDirectoryHandle(projectId)
+    const paragraphsDir = await projectDir.getDirectoryHandle('paragraphs')
+    await paragraphsDir.removeEntry(paragraphId, { recursive: true })
   } catch {
     /* ignore */
   }

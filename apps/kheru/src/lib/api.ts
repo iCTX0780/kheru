@@ -69,29 +69,44 @@ const api = {
     return data.voices
   },
 
-  generate: async (conversation: GenerateTurn[]): Promise<GenerateResponse> => {
+  generate: async (
+    conversation: GenerateTurn[],
+    options?: { signal?: AbortSignal }
+  ): Promise<GenerateResponse> => {
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ conversation }),
+      signal: options?.signal,
     })
     if (!res.ok) throw new Error(await parseError(res))
     return res.json()
   },
 
-  stitch: async (runIds: string[]): Promise<StitchResponse> => {
+  stitch: async (runIds: string[], options?: { signal?: AbortSignal }): Promise<StitchResponse> => {
     const res = await fetch('/api/stitch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ run_ids: runIds }),
+      signal: options?.signal,
     })
     if (!res.ok) throw new Error(await parseError(res))
     return res.json()
   },
 }
 
-export async function stitchRunIds(runIds: string[]): Promise<StitchResponse> {
-  return api.stitch(runIds)
+export async function stitchRunIds(
+  runIds: string[],
+  options?: { signal?: AbortSignal }
+): Promise<StitchResponse> {
+  return api.stitch(runIds, options)
+}
+
+export async function generateConversation(
+  conversation: GenerateTurn[],
+  options?: { signal?: AbortSignal }
+): Promise<GenerateResponse> {
+  return api.generate(conversation, options)
 }
 
 export function useVoices() {

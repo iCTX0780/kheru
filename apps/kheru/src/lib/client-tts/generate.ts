@@ -6,6 +6,7 @@ import {
 import { prepareTextForTts } from '@/lib/tts-prepare-text'
 import { alignParagraphAudio } from '@/lib/client-tts/align'
 import { createManagedBlobUrl } from '@/lib/client-tts/blob-registry'
+import { GenerationCancelledError } from '@/lib/generation-cancel'
 import { concatWavBlobs, concatWavBlobsDuration } from '@/lib/client-tts/concat-blobs'
 import { clientTtsGenerate } from '@/lib/client-tts/engine'
 import type { ClientGenerateResult, ClientTtsTurn } from '@/lib/client-tts/types'
@@ -64,9 +65,12 @@ async function synthLine(
 export interface ClientGenerateOptions {
   projectId?: string
   paragraphId?: string
+  generationId?: string
   /** When true, POST synthesized audio to /api/align when Gentle is up. */
   align?: boolean
   onAlignStart?: () => void
+  signal?: AbortSignal
+  isCancelled?: () => boolean
 }
 
 /** Generate one paragraph clip in the browser; optional Gentle align via server proxy. */
@@ -74,18 +78,35 @@ export async function clientGenerateParagraph(
   turn: ClientTtsTurn,
   options?: ClientGenerateOptions
 ): Promise<ClientGenerateResult> {
+  if (options?.isCancelled?.()) {
+    throw new GenerationCancelledError()
+  }
+
   const { spoken } = prepareTextForTts(turn.text)
   const { blob, duration } = await synthLine(spoken, turn.voice, turn.lengthScale)
+
+  if (options?.isCancelled?.()) {
+    throw new GenerationCancelledError()
+  }
+
   const audioUrl = createManagedBlobUrl(blob)
 
-  if (options?.projectId && options.paragraphId) {
-    void saveParagraphAudioOpfs(options.projectId, options.paragraphId, blob)
+  if (options?.projectId && options.paragraphId && options.generationId) {
+    void saveParagraphAudioOpfs(
+      options.projectId,
+      options.paragraphId,
+      options.generationId,
+      blob
+    )
   }
 
   let wordTimings: WordTiming[] | null = null
   if (options?.align) {
+    if (options?.isCancelled?.()) {
+      throw new GenerationCancelledError()
+    }
     options.onAlignStart?.()
-    wordTimings = await alignParagraphAudio(blob, spoken)
+    wordTimings = await alignParagraphAudio(blob, spoken, options.signal)
   }
 
   return {

@@ -12,6 +12,8 @@ function paragraph(id: string, audioUrl: string | null, status: Paragraph['statu
     duration: 2,
     wordTimings: null,
     status,
+    generations: [],
+    activeGenerationId: null,
   }
 }
 

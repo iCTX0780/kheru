@@ -1,11 +1,14 @@
 import { memo, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Circle, Loader2, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Circle, Loader2, Square, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { voiceDisplayName } from '@/lib/voice-catalog'
 import { estimateRemainingMs, formatEta } from '@/lib/generation-estimate'
+import { useClientTtsLoad } from '@/hooks/use-client-tts-load'
+import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import { voiceDotClass } from '@/lib/voice-colors'
 import { cn } from '@/lib/utils'
 import { useStudioStore } from '@/stores/studio'
+import { useStudioActions } from '@/hooks/use-studio-actions'
 
 type SegmentState = 'queued' | 'generating' | 'done' | 'error'
 
@@ -111,6 +114,8 @@ export function GenerationProgressPanel() {
   const chapter = useStudioStore((s) => s.chapter)
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const finishGenerationSession = useStudioStore((s) => s.finishGenerationSession)
+  const { handleStopGeneration } = useStudioActions()
+  const clientTtsLoad = useClientTtsLoad()
 
   const [expanded, setExpanded] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
@@ -162,8 +167,16 @@ export function GenerationProgressPanel() {
   const currentParagraph = currentId ? paragraphById.get(currentId) : undefined
   const isAligning =
     generationSession.active && generationSession.paragraphPhase === 'aligning' && !isStitching
-  const currentPreview =
-    isAligning
+  const isModelLoading =
+    isClientTtsEnabled() &&
+    clientTtsLoad.status === 'loading' &&
+    generationSession.active &&
+    completed === 0
+  const currentPreview = isModelLoading
+    ? clientTtsLoad.progress != null
+      ? `Downloading Kokoro model (${Math.round(clientTtsLoad.progress)}%)…`
+      : 'Downloading Kokoro model…'
+    : isAligning
       ? 'Aligning words…'
       : currentParagraph?.text.trim().slice(0, 64) ||
         (isStitching ? 'Stitching chapter mix…' : 'Preparing…')
@@ -198,6 +211,11 @@ export function GenerationProgressPanel() {
       return `Sit back and relax — we're working through ${total} paragraphs.`
     }
     if (completed < 2 && generationSession.active) {
+      if (isModelLoading) {
+        return clientTtsLoad.file
+          ? `First run downloads model weights — ${clientTtsLoad.file.split('/').pop()}`
+          : 'First run downloads model weights (~tens of MB).'
+      }
       return 'Warming up — time estimate in a moment.'
     }
     if (generationSession.active && total >= 5) {
@@ -238,6 +256,19 @@ export function GenerationProgressPanel() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
+            {generationSession.active && !hasError && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
+                onClick={handleStopGeneration}
+                aria-label="Stop generation"
+              >
+                <Square className="size-3 fill-current" />
+                Stop
+              </Button>
+            )}
             {(generationSession.active || hasError) && (
               <Button
                 type="button"

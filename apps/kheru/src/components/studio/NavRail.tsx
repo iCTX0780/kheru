@@ -1,5 +1,6 @@
 import { startTransition, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Dialog,
@@ -15,8 +16,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { BookOpen, Pencil, Plus } from 'lucide-react'
+import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { paragraphStatusRailClass } from '@/lib/paragraph-status'
 import { scrollToParagraph as scrollParagraphIntoView } from '@/lib/scroll-to-paragraph'
 import { voiceDotClass } from '@/lib/voice-colors'
@@ -34,12 +45,16 @@ export function NavRail() {
   const setSelectedParagraphId = useStudioStore((s) => s.setSelectedParagraphId)
   const addChapter = useStudioStore((s) => s.addChapter)
   const switchChapter = useStudioStore((s) => s.switchChapter)
+  const deleteChapter = useStudioStore((s) => s.deleteChapter)
   const generationLocked = useStudioStore(
     (s) => s.generationSession.active || s.chapter.status === 'generating'
   )
 
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameValue, setRenameValue] = useState(chapterTitle)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
+  const canDeleteChapter = chapters.length > 1 && !generationLocked
 
   const voiceIdsInUse = paragraphs.map((p) => p.voice)
 
@@ -61,6 +76,28 @@ export function NavRail() {
     setChapterTitle(next)
     setRenameOpen(false)
     toast.success('Chapter renamed')
+  }
+
+  const confirmDeleteChapter = () => {
+    if (!canDeleteChapter) {
+      toast.error('Keep at least one chapter in the project')
+      return
+    }
+    const title = chapterTitle
+    const paragraphCount = paragraphs.length
+    const generationCount = paragraphs.reduce(
+      (total, paragraph) => total + (paragraph.generations?.length ?? 0),
+      0
+    )
+    const removed = deleteChapter(activeChapterId)
+    setDeleteOpen(false)
+    if (!removed) {
+      toast.error('Could not delete chapter')
+      return
+    }
+    toast.success(
+      `Deleted "${title}" (${paragraphCount} paragraph${paragraphCount === 1 ? '' : 's'}, ${generationCount} take${generationCount === 1 ? '' : 's'})`
+    )
   }
 
   return (
@@ -121,9 +158,34 @@ export function NavRail() {
 
       <div className="flex items-center justify-between gap-1 border-t border-sidebar-border px-3 py-2">
         <span className="truncate text-xs font-medium text-muted-foreground">{chapterTitle}</span>
-        <Button type="button" variant="ghost" size="icon-xs" aria-label="Rename chapter" onClick={openRename}>
-          <Pencil />
-        </Button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Button type="button" variant="ghost" size="icon-xs" aria-label="Rename chapter" onClick={openRename}>
+            <Pencil />
+          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Delete chapter"
+                  disabled={!canDeleteChapter}
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 />
+                </Button>
+              }
+            />
+            <TooltipContent>
+              {chapters.length <= 1
+                ? 'Cannot delete the only chapter'
+                : generationLocked
+                  ? 'Finish generation before deleting'
+                  : 'Delete chapter'}
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       <div className="flex items-center justify-between px-3 py-1">
@@ -166,7 +228,14 @@ export function NavRail() {
                     aria-hidden
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{preview}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="block truncate font-medium">{preview}</span>
+                      {(paragraph.generations?.length ?? 0) > 1 && (
+                        <Badge variant="outline" className="shrink-0 px-1 py-0 text-[0.6rem]">
+                          {paragraph.generations!.length} takes
+                        </Badge>
+                      )}
+                    </span>
                     <span className="truncate text-[0.65rem] font-mono text-muted-foreground">{subtitle}</span>
                   </span>
                 </button>
@@ -202,6 +271,25 @@ export function NavRail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete chapter?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes <strong>{chapterTitle}</strong>, its{' '}
+              {paragraphs.length} paragraph{paragraphs.length === 1 ? '' : 's'}, and all
+              generation takes. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={confirmDeleteChapter}>
+              Delete chapter
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   )
 }

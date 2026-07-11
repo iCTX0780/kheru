@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { voiceForSpeaker, lengthScaleForSpeaker } from './voice-catalog'
+import { voiceForSpeaker, lengthScaleForSpeaker, buildSpeakerVoiceDefaults } from './voice-catalog'
 import { fromDisplaySpeed } from './speed'
-import { parseImportScript } from './parse-script'
+import { collectImportSpeakers, parseImportScript } from './parse-script'
 
 describe('parseImportScript', () => {
   it('merges wrapped continuation lines after a speaker label', () => {
@@ -94,6 +94,23 @@ backend, UI/UX, CI/CD, and product.
   })
 })
 
+describe('collectImportSpeakers', () => {
+  it('returns unique speakers in first-seen order with paragraph counts', () => {
+    const blocks = parseImportScript(`Shadi: Line one.
+Interviewer: Question?
+Shadi: Line two.`)
+
+    expect(collectImportSpeakers(blocks)).toEqual([
+      { label: 'Shadi', lineCount: 2 },
+      { label: 'Interviewer', lineCount: 1 },
+    ])
+  })
+
+  it('returns an empty list when no speaker labels are present', () => {
+    expect(collectImportSpeakers(parseImportScript('Line one.\nLine two.'))).toEqual([])
+  })
+})
+
 describe('voiceForSpeaker', () => {
   const voices = ['kokoro:af_heart', 'kokoro:am_michael', 'kokoro:am_adam', 'kokoro:am_fenrir']
 
@@ -122,5 +139,37 @@ describe('voiceForSpeaker', () => {
     expect(voiceForSpeaker('INTERVIEWER', 'kokoro:am_michael', ['kokoro:am_michael'])).toBe(
       'kokoro:am_michael'
     )
+  })
+
+  it('uses a custom speaker voice map when provided', () => {
+    expect(
+      voiceForSpeaker('Shadi', 'kokoro:am_michael', voices, { Shadi: 'kokoro:af_bella' })
+    ).toBe('kokoro:af_bella')
+  })
+})
+
+describe('buildSpeakerVoiceDefaults', () => {
+  const voices = [
+    'kokoro:af_heart',
+    'kokoro:af_bella',
+    'kokoro:am_michael',
+    'kokoro:am_adam',
+    'kokoro:am_fenrir',
+  ]
+
+  it('assigns known defaults and distinct voices for unknown speakers', () => {
+    expect(
+      buildSpeakerVoiceDefaults(['INTERVIEWER', 'YOU', 'Shadi'], 'kokoro:am_michael', voices)
+    ).toEqual({
+      INTERVIEWER: 'kokoro:af_heart',
+      YOU: 'kokoro:am_michael',
+      Shadi: 'kokoro:af_bella',
+    })
+  })
+
+  it('avoids duplicate voices when two speakers share the same default', () => {
+    const map = buildSpeakerVoiceDefaults(['HEADLINE', 'HEADING'], 'kokoro:am_michael', voices)
+    expect(map.HEADLINE).toBe('kokoro:am_fenrir')
+    expect(map.HEADING).not.toBe(map.HEADLINE)
   })
 })

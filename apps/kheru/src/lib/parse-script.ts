@@ -9,6 +9,21 @@ export interface ImportBlock {
   speaker?: string
 }
 
+export interface ImportSpeaker {
+  label: string
+  lineCount: number
+}
+
+/** Unique speaker labels from import blocks, in first-seen order, with paragraph counts. */
+export function collectImportSpeakers(blocks: ImportBlock[]): ImportSpeaker[] {
+  const counts = new Map<string, number>()
+  for (const block of blocks) {
+    if (!block.speaker) continue
+    counts.set(block.speaker, (counts.get(block.speaker) ?? 0) + 1)
+  }
+  return Array.from(counts.entries()).map(([label, lineCount]) => ({ label, lineCount }))
+}
+
 function normalizeImportScript(script: string): string {
   let text = script.replace(/\r\n/g, '\n')
 

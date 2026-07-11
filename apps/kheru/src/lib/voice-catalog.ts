@@ -82,13 +82,41 @@ export const SPEAKER_LENGTH_SCALE_DEFAULTS: Record<string, number> = {
 export function voiceForSpeaker(
   speaker: string | undefined,
   fallbackVoice: string,
-  availableVoices: string[]
+  availableVoices: string[],
+  customMap?: Record<string, string>
 ): string {
   if (!speaker) return fallbackVoice
+  if (customMap?.[speaker]) return customMap[speaker]
   const key = speaker.trim().toUpperCase().replace(/\s+/g, '_')
   const preferred = SPEAKER_VOICE_DEFAULTS[key]
   if (preferred && availableVoices.includes(preferred)) return preferred
   return fallbackVoice
+}
+
+/** Suggest a distinct voice per speaker for the import mapping step. */
+export function buildSpeakerVoiceDefaults(
+  speakers: string[],
+  fallbackVoice: string,
+  availableVoices: string[]
+): Record<string, string> {
+  const map: Record<string, string> = {}
+  const used = new Set<string>()
+
+  for (const speaker of speakers) {
+    const preferred = voiceForSpeaker(speaker, fallbackVoice, availableVoices)
+    if (!used.has(preferred)) {
+      map[speaker] = preferred
+      used.add(preferred)
+      continue
+    }
+
+    const unused = availableVoices.find((voice) => !used.has(voice))
+    const voice = unused ?? preferred
+    map[speaker] = voice
+    used.add(voice)
+  }
+
+  return map
 }
 
 export function lengthScaleForSpeaker(

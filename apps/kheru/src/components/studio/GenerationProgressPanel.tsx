@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { voiceDisplayName } from '@/lib/voice-catalog'
 import { estimateRemainingMs, formatEta } from '@/lib/generation-estimate'
 import { useClientTtsLoad } from '@/hooks/use-client-tts-load'
-import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import { voiceDotClass } from '@/lib/voice-colors'
 import { cn } from '@/lib/utils'
 import { useStudioStore } from '@/stores/studio'
@@ -165,10 +164,7 @@ export function GenerationProgressPanel() {
 
   const currentId = generationSession.paragraphIds[generationSession.currentIndex]
   const currentParagraph = currentId ? paragraphById.get(currentId) : undefined
-  const isAligning =
-    generationSession.active && generationSession.paragraphPhase === 'aligning' && !isStitching
   const isModelLoading =
-    isClientTtsEnabled() &&
     clientTtsLoad.status === 'loading' &&
     generationSession.active &&
     completed === 0
@@ -176,10 +172,8 @@ export function GenerationProgressPanel() {
     ? clientTtsLoad.progress != null
       ? `Downloading Kokoro model (${Math.round(clientTtsLoad.progress)}%)…`
       : 'Downloading Kokoro model…'
-    : isAligning
-      ? 'Aligning words…'
-      : currentParagraph?.text.trim().slice(0, 64) ||
-        (isStitching ? 'Stitching chapter mix…' : 'Preparing…')
+    : currentParagraph?.text.trim().slice(0, 64) ||
+      (isStitching ? 'Stitching chapter mix…' : 'Preparing…')
 
   const visible =
     generationSession.active ||
@@ -244,8 +238,6 @@ export function GenerationProgressPanel() {
                 ? 'Generation stopped'
                 : isStitching
                   ? 'Stitching chapter'
-                  : isAligning
-                    ? 'Aligning words'
                   : showComplete
                     ? 'Generation complete'
                     : isLargeBatch && generationSession.active

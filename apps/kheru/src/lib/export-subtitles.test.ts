@@ -8,7 +8,7 @@ function paragraph(id: string, text: string): Paragraph {
     text,
     voice: 'am_michael',
     lengthScale: 1,
-    audioUrl: `/api/audio/${id}`,
+    audioUrl: `blob:${id}`,
     duration: 2,
     wordTimings: null,
     status: 'done',

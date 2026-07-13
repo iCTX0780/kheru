@@ -33,7 +33,7 @@ function sampleGeneration(overrides: Partial<ParagraphGeneration> = {}): Paragra
     textSnapshot: 'Hello world',
     voice: 'kokoro:af_heart',
     lengthScale: 1,
-    audioUrl: '/api/audio/abcd1234',
+    audioUrl: 'blob:abcd1234',
     duration: 2.5,
     wordTimings: null,
     audioRef: 'abcd1234',
@@ -134,7 +134,7 @@ describe('appendGenerationWithLimit', () => {
 describe('migrateParagraphToV2', () => {
   it('creates a generation from legacy single-audio paragraph', () => {
     const legacy = baseParagraph({
-      audioUrl: '/api/audio/abcd1234',
+      audioUrl: 'blob:abcd1234',
       duration: 3,
       wordTimings: null,
       status: 'done',
@@ -143,8 +143,8 @@ describe('migrateParagraphToV2', () => {
     expect(migrated.generations).toHaveLength(1)
     expect(migrated.activeGenerationId).toBe(migrated.generations[0]?.id)
     expect(migrated.generations[0]?.textSnapshot).toBe('Hello world')
-    expect(migrated.generations[0]?.audioRef).toBe('abcd1234')
-    expect(migrated.audioUrl).toBe('/api/audio/abcd1234')
+    expect(migrated.generations[0]?.audioRef).toBeUndefined()
+    expect(migrated.audioUrl).toBe('blob:abcd1234')
   })
 
   it('initializes empty generations when no audio', () => {

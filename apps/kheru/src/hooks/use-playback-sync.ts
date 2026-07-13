@@ -15,7 +15,8 @@ interface UsePlaybackSyncOptions {
   mode: PlaybackMode
 }
 
-const SYNC_MIN_INTERVAL_MS = 1000 / 30
+/** Cap store updates during playback — UI only needs ~10 fps for time/scrub sync */
+const SYNC_INTERVAL_MS = 100
 
 interface HighlightCache {
   paragraphId: string | null
@@ -57,20 +58,15 @@ export function usePlaybackSync({ audioRef, isPlaying, mode }: UsePlaybackSyncOp
   useEffect(() => {
     if (!isPlaying || !audioRef.current || !mode) return
 
-    let raf = 0
-    let lastEmit = 0
     const lastStateRef = {
       currentTime: -1,
       activeParagraphId: null as string | null,
       activeWordIndex: null as number | null,
     }
 
-    const tick = (now: number) => {
+    const tick = () => {
       const audio = audioRef.current
-      if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) {
-        raf = requestAnimationFrame(tick)
-        return
-      }
+      if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return
 
       const { paragraphs, playback, chapter } = useStudioStore.getState()
       const segments =
@@ -137,28 +133,21 @@ export function usePlaybackSync({ audioRef, isPlaying, mode }: UsePlaybackSyncOp
         }
       }
 
-      const shouldEmit =
-        now - lastEmit >= SYNC_MIN_INTERVAL_MS ||
+      const highlightChanged =
         activeParagraphId !== lastStateRef.activeParagraphId ||
         activeWordIndex !== lastStateRef.activeWordIndex
+      const timeMoved = Math.abs(currentTime - lastStateRef.currentTime) > 0.05
 
-      if (
-        shouldEmit &&
-        (Math.abs(currentTime - lastStateRef.currentTime) > 0.02 ||
-          activeParagraphId !== lastStateRef.activeParagraphId ||
-          activeWordIndex !== lastStateRef.activeWordIndex)
-      ) {
-        lastEmit = now
+      if (highlightChanged || timeMoved) {
         lastStateRef.currentTime = currentTime
         lastStateRef.activeParagraphId = activeParagraphId
         lastStateRef.activeWordIndex = activeWordIndex
         setPlayback({ currentTime, activeParagraphId, activeWordIndex })
       }
-
-      raf = requestAnimationFrame(tick)
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    tick()
+    const interval = window.setInterval(tick, SYNC_INTERVAL_MS)
+    return () => window.clearInterval(interval)
   }, [audioRef, isPlaying, mode, setPlayback])
 }

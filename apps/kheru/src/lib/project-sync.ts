@@ -50,16 +50,6 @@ export async function flushProjectSave(): Promise<void> {
   const project = studioStateToProject(state)
   await saveProjectToIDB(project)
   await setMetaValue('lastActiveProjectId', project.id)
-
-  try {
-    await fetch(`/api/projects/${project.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(project),
-    })
-  } catch {
-    // Offline or server unavailable — IDB is source of truth locally
-  }
 }
 
 export function cancelScheduledProjectSave(): void {

@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import { splitWords } from '@/lib/playback-words'
 import { voiceHighlightClass } from '@/lib/voice-colors'
 import { cn } from '@/lib/utils'
@@ -10,14 +11,14 @@ interface HighlightedTextProps {
   className?: string
 }
 
-export function HighlightedText({
+export const HighlightedText = memo(function HighlightedText({
   text,
   activeWordIndex,
   voiceId,
   voiceIdsInUse,
   className,
 }: HighlightedTextProps) {
-  const words = splitWords(text)
+  const words = useMemo(() => splitWords(text), [text])
 
   if (words.length === 0) {
     return <p className={cn('text-sm text-muted-foreground italic', className)}>Empty paragraph</p>
@@ -40,4 +41,4 @@ export function HighlightedText({
       ))}
     </p>
   )
-}
+})

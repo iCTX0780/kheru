@@ -14,12 +14,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { VoicePicker } from '@/components/VoicePicker'
 import { paragraphStatusLabel } from '@/lib/paragraph-status'
 import { draftDiffersFromGeneration, MAX_PARAGRAPH_GENERATIONS, resolveActiveGeneration } from '@/lib/paragraph-generations'
-import { isClientTtsEnabled } from '@/lib/client-tts/config'
-import { getCachedServerCapabilities } from '@/lib/client-tts/capabilities'
 import { fromDisplaySpeed, SPEED_MAX, SPEED_MIN, toDisplaySpeed } from '@/lib/speed'
 import { useStudioStore } from '@/stores/studio'
 import { ChevronDown, Play, Sparkles, Trash2 } from 'lucide-react'
-import type { VoiceInfo } from '@/lib/api'
+import type { VoiceInfo } from '@/lib/voices'
 import { cn } from '@/lib/utils'
 
 interface ContextualInspectorProps {
@@ -62,7 +60,6 @@ export function ContextualInspector({
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
   const updateParagraph = useStudioStore((s) => s.updateParagraph)
-  const generationParagraphPhase = useStudioStore((s) => s.generationSession.paragraphPhase)
   const generationLocked = useStudioStore(
     (s) => s.generationSession.active || s.chapter.status === 'generating'
   )
@@ -85,9 +82,6 @@ export function ContextualInspector({
   const isGenerating = paragraph.status === 'generating'
   const canPlay = paragraph.status === 'done' && paragraph.audioUrl
   const generateLabel = paragraph.generations?.length ? 'Regenerate' : 'Generate'
-  const clientTts = isClientTtsEnabled()
-  const gentleAvailable = getCachedServerCapabilities()?.gentle ?? false
-  const hasGentleTimings = Boolean(paragraph.wordTimings?.length)
   const activeGeneration = resolveActiveGeneration(paragraph)
   const draftChangedSinceActive =
     activeGeneration && draftDiffersFromGeneration(paragraph, activeGeneration)
@@ -154,7 +148,7 @@ export function ContextualInspector({
               {isGenerating ? (
                 <>
                   <Spinner data-icon="inline-start" />
-                  {generationParagraphPhase === 'aligning' ? 'Aligning' : 'Generating'}
+                  Generating
                 </>
               ) : (
                 <>
@@ -266,22 +260,8 @@ export function ContextualInspector({
             </Collapsible>
           )}
 
-          {paragraph.status === 'done' && hasGentleTimings && (
-            <p className="text-xs text-muted-foreground">Word highlights (Gentle).</p>
-          )}
-
-          {paragraph.status === 'done' && !hasGentleTimings && clientTts && (
-            <p className="text-xs text-muted-foreground">
-              {gentleAvailable
-                ? 'Estimated word highlights — alignment did not return timings for this clip.'
-                : 'Estimated word highlights (offline). Enable Gentle on the server for aligned karaoke.'}
-            </p>
-          )}
-
-          {paragraph.status === 'done' && !hasGentleTimings && !clientTts && (
-            <p className="text-xs text-muted-foreground">
-              Estimated word highlights. Run with Gentle for aligned karaoke.
-            </p>
+          {paragraph.status === 'done' && (
+            <p className="text-xs text-muted-foreground">Estimated word highlights during playback.</p>
           )}
 
           {paragraph.error && (

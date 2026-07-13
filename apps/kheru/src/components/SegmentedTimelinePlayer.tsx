@@ -142,9 +142,6 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
     return audioUrl
   }, [audioUrl, chapter.audioUrl, playback.mode])
 
-  const waveformPreferPeaks =
-    playback.mode === 'chapter' || totalDuration > 120
-
   usePlaybackSync({ audioRef, isPlaying: playback.isPlaying, mode: playback.mode })
 
   useEffect(() => {
@@ -396,7 +393,7 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
     }
   }, [clipKey, playback.isPlaying, setPlayback])
 
-  // Sequence clip boundary — use actual audio duration, not stored paragraph duration.
+  // Sequence clip boundary — use audio timeupdate instead of a 60fps rAF loop.
   useEffect(() => {
     if (!playback.isPlaying || playback.mode !== 'sequence') return
 
@@ -404,9 +401,8 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
     if (!audio) return
 
     const watchingIndex = playback.sequenceIndex
-    let raf = 0
 
-    const tick = () => {
+    const checkClipEnd = () => {
       const state = useStudioStore.getState()
       const pb = state.playback
       const el = audioRef.current
@@ -414,10 +410,7 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
       if (!el || !pb.isPlaying || pb.mode !== 'sequence') return
       if (pb.sequenceIndex !== watchingIndex) return
       if (loadedClipKeyRef.current !== clipKey) return
-      if (clipLoadingRef.current || el.readyState < HTMLMediaElement.HAVE_METADATA) {
-        raf = requestAnimationFrame(tick)
-        return
-      }
+      if (clipLoadingRef.current || el.readyState < HTMLMediaElement.HAVE_METADATA) return
 
       const paragraph = state.paragraphs.find(
         (p) => p.id === pb.sequenceParagraphIds[watchingIndex]
@@ -427,14 +420,11 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
 
       if (isClipAtEnd(el, fallback)) {
         advanceSequenceRef.current()
-        return
       }
-
-      raf = requestAnimationFrame(tick)
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    audio.addEventListener('timeupdate', checkClipEnd)
+    return () => audio.removeEventListener('timeupdate', checkClipEnd)
   }, [clipKey, playback.isPlaying, playback.mode, playback.sequenceIndex])
 
   useEffect(() => {
@@ -711,7 +701,6 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
               duration={totalDuration}
               onSeek={seek}
               disabled={!canScrub}
-              preferPeaks={waveformPreferPeaks}
               estimatedDuration={totalDuration}
             />
           </Suspense>

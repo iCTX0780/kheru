@@ -136,10 +136,6 @@ export function voicePreviewFilename(voiceId: string): string {
   return `${voiceId.replace(':', '_')}.wav`
 }
 
-export function voiceSampleUrl(voiceId: string): string {
-  return `/api/voice-preview/${voicePreviewFilename(voiceId).replace(/\.wav$/, '')}`
-}
-
 export function voiceDisplayName(voiceId: string): string {
   const voice = VOICE_BY_ID[voiceId]
   return voice?.displayName ?? voiceId

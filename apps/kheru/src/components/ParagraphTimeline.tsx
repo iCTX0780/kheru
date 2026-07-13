@@ -1,5 +1,5 @@
 import { ScriptCanvas } from '@/components/studio/ScriptCanvas'
-import type { VoiceInfo } from '@/lib/api'
+import type { VoiceInfo } from '@/lib/voices'
 
 interface ParagraphTimelineProps {
   voices: VoiceInfo[]

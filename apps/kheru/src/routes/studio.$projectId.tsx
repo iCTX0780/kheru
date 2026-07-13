@@ -1,16 +1,14 @@
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { lazy, Suspense, useEffect, useState } from 'react'
 import { Toaster } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { KeyboardShortcutsDialog } from '@/components/studio/KeyboardShortcutsDialog'
 import { useStudioHydration, useProjectAutoSave } from '@/hooks/use-studio-hydration'
 import { useStudioActions } from '@/hooks/use-studio-actions'
 import { useStudioStore } from '@/stores/studio'
-import { useVoices } from '@/lib/api'
-import { fetchServerCapabilities } from '@/lib/client-tts/capabilities'
 import { warmClientTtsEngine } from '@/lib/client-tts/engine'
-import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import { DEFAULT_VOICE_ID } from '@/lib/voice-catalog'
+import { listVoices } from '@/lib/voices'
 import { playableParagraphs } from '@/lib/playback-segments'
 import { getProjectFromIDB } from '@/lib/project-db'
 
@@ -33,13 +31,13 @@ function StudioPage() {
   const { projectId } = Route.useParams()
   const hydrated = useStudioHydration(projectId)
   useProjectAutoSave(hydrated)
-  const { data: voiceList = [], isLoading: isLoadingVoices } = useVoices()
+  const voiceList = useMemo(() => listVoices(), [])
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   const setVoices = useStudioStore((s) => s.setVoices)
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const chapter = useStudioStore((s) => s.chapter)
-  const playback = useStudioStore((s) => s.playback)
+  const isPlaying = useStudioStore((s) => s.playback.isPlaying)
   const generationLocked = useStudioStore(
     (s) => s.generationSession.active || s.chapter.status === 'generating'
   )
@@ -66,12 +64,9 @@ function StudioPage() {
 
   useEffect(() => {
     if (!hydrated) return
-    void fetchServerCapabilities()
-    if (isClientTtsEnabled()) {
-      void warmClientTtsEngine().catch((err) => {
-        console.warn('Client TTS warm-up failed:', err)
-      })
-    }
+    void warmClientTtsEngine().catch((err) => {
+      console.warn('Client TTS warm-up failed:', err)
+    })
   }, [hydrated])
 
   useEffect(() => {
@@ -118,12 +113,12 @@ function StudioPage() {
           <StudioShell
             hydrated={hydrated}
             voices={voiceList}
-            isLoadingVoices={isLoadingVoices}
+            isLoadingVoices={false}
             chapterGenerating={chapter.status === 'generating'}
             chapterError={chapter.error}
             hasText={hasText}
             canPlay={canPlay}
-            isPlaying={playback.isPlaying}
+            isPlaying={isPlaying}
             onTogglePlay={togglePlayPause}
             onGenerateSelection={() => void handleGenerateSelection()}
             onGenerateChapter={() => void handleGenerateChapter()}

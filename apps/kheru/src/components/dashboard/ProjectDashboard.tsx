@@ -25,8 +25,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ProjectCard } from '@/components/dashboard/ProjectCard'
-import { useProjects } from '@/lib/api'
-import { queryClient } from '@/lib/query-client'
 import { DEFAULT_VOICE_ID } from '@/lib/voice-catalog'
 import {
   createDefaultProject,
@@ -35,13 +33,11 @@ import {
   projectSummary,
   saveProjectToIDB,
   setMetaValue,
-  type ProjectRecord,
   type ProjectSummary,
 } from '@/lib/project-db'
 
 export function ProjectDashboard() {
   const navigate = useNavigate()
-  const { data: serverProjects = [] } = useProjects()
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
@@ -52,25 +48,13 @@ export function ProjectDashboard() {
 
   const refreshProjects = useCallback(async () => {
     const idbProjects = await listProjectsFromIDB()
-    const merged = new Map<string, ProjectRecord>()
-
-    for (const project of idbProjects) {
-      merged.set(project.id, project)
-    }
-    for (const server of serverProjects) {
-      const existing = merged.get(server.id)
-      if (!existing || server.updatedAt > existing.updatedAt) {
-        merged.set(server.id, server as ProjectRecord)
-      }
-    }
-
-    const summaries = [...merged.values()]
+    const summaries = idbProjects
       .map(projectSummary)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
     setProjects(summaries)
     setLoading(false)
-  }, [serverProjects])
+  }, [])
 
   useEffect(() => {
     void refreshProjects()
@@ -81,15 +65,6 @@ export function ProjectDashboard() {
     const project = createDefaultProject(DEFAULT_VOICE_ID, title)
     await saveProjectToIDB(project)
     await setMetaValue('lastActiveProjectId', project.id)
-    try {
-      await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(project),
-      })
-    } catch {
-      /* IDB is enough locally */
-    }
     setCreateOpen(false)
     setNewTitle('')
     startTransition(() => {
@@ -115,19 +90,8 @@ export function ProjectDashboard() {
     const id = deleteId
     setDeleteId(null)
 
-    // Optimistic UI — stale React Query cache re-added deleted projects on refresh.
     setProjects((prev) => prev.filter((p) => p.id !== id))
-    queryClient.setQueryData(
-      ['projects'],
-      (old: ProjectRecord[] | undefined) => (old ?? []).filter((p) => p.id !== id)
-    )
-
     await deleteProjectFromIDB(id)
-    try {
-      await fetch(`/api/projects/${id}`, { method: 'DELETE' })
-    } catch {
-      /* local delete is enough */
-    }
     toast.success('Project deleted')
   }
 
@@ -248,7 +212,7 @@ export function ProjectDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete project?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the project from your browser library. Generated audio on the server is not deleted.
+              This removes the project and its audio from this browser. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

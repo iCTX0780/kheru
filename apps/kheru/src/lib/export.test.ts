@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fullMixRunIds } from '@/lib/export'
+import { canExportFullMix, canExportParagraphs } from '@/lib/export'
 import type { Chapter, Paragraph } from '@/stores/studio'
 
 function paragraph(id: string, audioUrl: string | null, status: Paragraph['status'] = 'done'): Paragraph {
@@ -17,24 +17,28 @@ function paragraph(id: string, audioUrl: string | null, status: Paragraph['statu
   }
 }
 
-describe('fullMixRunIds', () => {
+describe('canExportFullMix', () => {
   const chapter: Chapter = {
-    audioUrl: '/api/audio/abcd1234',
+    audioUrl: 'blob:chapter',
     segments: [],
     status: 'done',
   }
 
-  it('prefers chapter run id when chapter is ready', () => {
-    const paragraphs = [paragraph('p1', '/api/audio/11111111')]
-    expect(fullMixRunIds(paragraphs, chapter)).toEqual(['abcd1234'])
+  it('allows export when chapter mix exists', () => {
+    const paragraphs = [paragraph('p1', 'blob:p1')]
+    expect(canExportFullMix(paragraphs, chapter)).toBe(true)
   })
 
-  it('falls back to paragraph run ids in order', () => {
+  it('allows export from paragraph blobs when chapter is idle', () => {
     const idleChapter: Chapter = { audioUrl: null, segments: [], status: 'idle' }
-    const paragraphs = [
-      paragraph('p1', '/api/audio/11111111'),
-      paragraph('p2', '/api/audio/22222222'),
-    ]
-    expect(fullMixRunIds(paragraphs, idleChapter)).toEqual(['11111111', '22222222'])
+    const paragraphs = [paragraph('p1', 'blob:p1'), paragraph('p2', null, 'idle')]
+    expect(canExportFullMix(paragraphs, idleChapter)).toBe(true)
+  })
+})
+
+describe('canExportParagraphs', () => {
+  it('requires at least one generated paragraph', () => {
+    expect(canExportParagraphs([paragraph('p1', 'blob:p1')])).toBe(true)
+    expect(canExportParagraphs([paragraph('p1', null, 'idle')])).toBe(false)
   })
 })

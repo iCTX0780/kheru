@@ -1,13 +1,5 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
-import {
-  turnFromParagraph,
-  generateConversation,
-  wordTimingsForTurn,
-  segmentDurationFromResult,
-  stitchRunIds,
-  type GenerateResponse,
-} from '@/lib/api'
 import { cancelPendingClientTts } from '@/lib/client-tts/engine'
 import {
   assertGenerationNotCancelled,
@@ -15,41 +7,17 @@ import {
   isGenerationCancelled,
   stopGenerationRun,
 } from '@/lib/generation-cancel'
-import { resolveClipDuration } from '@/lib/audio-duration'
 import { revokeManagedBlobUrl } from '@/lib/client-tts/blob-registry'
-import { fetchServerCapabilities } from '@/lib/client-tts/capabilities'
-import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import { clientGenerateParagraph, clientStitchParagraphs } from '@/lib/client-tts/generate'
 import { estimateBulkGenerationMs, formatEta } from '@/lib/generation-estimate'
 import { buildSegmentsFromParagraphs, playableParagraphs, PARAGRAPH_GAP_SECONDS } from '@/lib/playback-segments'
 import { useStudioStore, type Paragraph, type PlaybackSegment } from '@/stores/studio'
-
-async function applyParagraphResult(
-  paragraph: Paragraph,
-  result: GenerateResponse,
-  appendParagraphGeneration: ReturnType<typeof useStudioStore.getState>['appendParagraphGeneration']
-): Promise<string> {
-  const audioUrl = result.clips?.[0]?.audio_url ?? result.audio_url
-  const runId = result.clips?.[0]?.run_id ?? result.run_id
-  const duration = await resolveClipDuration(audioUrl, segmentDurationFromResult(result, 0))
-  const wordTimings = wordTimingsForTurn(result.words, 0)
-  appendParagraphGeneration(
-    paragraph.id,
-    audioUrl,
-    duration,
-    wordTimings.length > 0 ? wordTimings : null,
-    runId
-  )
-  return runId
-}
 
 async function applyClientParagraphResult(
   paragraph: Paragraph,
   appendParagraphGeneration: ReturnType<typeof useStudioStore.getState>['appendParagraphGeneration'],
   options: {
     projectId: string
-    align: boolean
-    onAlignStart?: () => void
     signal: AbortSignal
     isCancelled: () => boolean
   }
@@ -67,8 +35,6 @@ async function applyClientParagraphResult(
       projectId: options.projectId,
       paragraphId: paragraph.id,
       generationId,
-      align: options.align,
-      onAlignStart: options.onAlignStart,
       signal: options.signal,
       isCancelled: options.isCancelled,
     }
@@ -112,46 +78,26 @@ function allTextParagraphsHaveActiveTake(paragraphs: Paragraph[]): boolean {
   return withText.every((p) => p.status === 'done' && p.audioUrl)
 }
 
-function extractRunId(audioUrl: string): string | null {
-  const match = audioUrl.match(/\/api\/audio\/([0-9a-f]{8})$/)
-  return match?.[1] ?? null
-}
-
 async function stitchChapterFromActiveTakes(options: {
-  clientTts: boolean
   projectId: string
   chapterId: string
   paragraphs: Paragraph[]
-  clientClips?: Blob[]
 }): Promise<{ audioUrl: string; segments: PlaybackSegment[] } | null> {
   const withText = paragraphsWithText(options.paragraphs)
   if (!allTextParagraphsHaveActiveTake(options.paragraphs)) return null
 
   const segments = buildChapterSegments(withText)
-
-  if (options.clientTts) {
-    const blobs: Blob[] = []
-    for (const paragraph of withText) {
-      if (!paragraph.audioUrl) return null
-      const response = await fetch(paragraph.audioUrl)
-      blobs.push(await response.blob())
-    }
-    const stitched = await clientStitchParagraphs(blobs, {
-      projectId: options.projectId,
-      chapterId: options.chapterId,
-    })
-    return { audioUrl: stitched.audioUrl, segments }
-  }
-
-  const runIds: string[] = []
+  const blobs: Blob[] = []
   for (const paragraph of withText) {
     if (!paragraph.audioUrl) return null
-    const runId = extractRunId(paragraph.audioUrl)
-    if (!runId) return null
-    runIds.push(runId)
+    const response = await fetch(paragraph.audioUrl)
+    blobs.push(await response.blob())
   }
-  const stitched = await stitchRunIds(runIds)
-  return { audioUrl: stitched.audio_url, segments }
+  const stitched = await clientStitchParagraphs(blobs, {
+    projectId: options.projectId,
+    chapterId: options.chapterId,
+  })
+  return { audioUrl: stitched.audioUrl, segments }
 }
 
 async function handleCancelledGeneration(
@@ -168,8 +114,6 @@ async function handleCancelledGeneration(
 }
 
 export function useStudioActions() {
-  const clientTts = isClientTtsEnabled()
-
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const chapter = useStudioStore((s) => s.chapter)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
@@ -199,7 +143,6 @@ export function useStudioActions() {
 
     try {
       const stitched = await stitchChapterFromActiveTakes({
-        clientTts,
         projectId: state.projectId,
         chapterId: state.activeChapterId,
         paragraphs: state.paragraphs,
@@ -212,7 +155,7 @@ export function useStudioActions() {
     } catch {
       return false
     }
-  }, [clientTts, setChapterDone])
+  }, [setChapterDone])
 
   const handleGenerateChapter = useCallback(async () => {
     const state = useStudioStore.getState()
@@ -226,9 +169,6 @@ export function useStudioActions() {
       toast.error('Add text to at least one paragraph')
       return
     }
-
-    const capabilities = clientTts ? await fetchServerCapabilities() : null
-    const hybridAlign = Boolean(clientTts && capabilities?.gentle)
 
     setChapterGenerating()
     const estimatedTotalMs = estimateBulkGenerationMs(ready.map((p) => p.text.trim()))
@@ -246,9 +186,7 @@ export function useStudioActions() {
     const signal = beginGenerationRun()
 
     try {
-      if (clientTts) {
-        revokeManagedBlobUrl(state.chapter.audioUrl)
-      }
+      revokeManagedBlobUrl(state.chapter.audioUrl)
 
       for (const paragraph of ready) {
         assertGenerationNotCancelled(useStudioStore.getState().generationSession.cancelRequested)
@@ -256,21 +194,11 @@ export function useStudioActions() {
         setParagraphGenerating(paragraph.id)
         setGenerationParagraphPhase('synthesizing')
 
-        if (clientTts) {
-          await applyClientParagraphResult(paragraph, appendParagraphGeneration, {
-            projectId: state.projectId,
-            align: hybridAlign,
-            onAlignStart: () => setGenerationParagraphPhase('aligning'),
-            signal,
-            isCancelled,
-          })
-        } else {
-          const result = await generateConversation(
-            [turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale)],
-            { signal }
-          )
-          await applyParagraphResult(paragraph, result, appendParagraphGeneration)
-        }
+        await applyClientParagraphResult(paragraph, appendParagraphGeneration, {
+          projectId: state.projectId,
+          signal,
+          isCancelled,
+        })
 
         advanceGenerationSession(paragraph.id)
       }
@@ -282,31 +210,18 @@ export function useStudioActions() {
         ready.map((p) => updatedParagraphs.find((up) => up.id === p.id) ?? p)
       )
 
-      if (clientTts) {
-        const blobs: Blob[] = []
-        for (const paragraph of ready) {
-          const updated = updatedParagraphs.find((p) => p.id === paragraph.id)
-          if (!updated?.audioUrl) continue
-          const response = await fetch(updated.audioUrl)
-          blobs.push(await response.blob())
-        }
-        const stitched = await clientStitchParagraphs(blobs, {
-          projectId: state.projectId,
-          chapterId: state.activeChapterId,
-        })
-        setChapterDone(stitched.audioUrl, segments)
-      } else {
-        const runIds: string[] = []
-        for (const paragraph of ready) {
-          const updated = updatedParagraphs.find((p) => p.id === paragraph.id)
-          const audioUrl = updated?.audioUrl
-          if (!audioUrl) continue
-          const runId = extractRunId(audioUrl)
-          if (runId) runIds.push(runId)
-        }
-        const stitched = await stitchRunIds(runIds, { signal })
-        setChapterDone(stitched.audio_url, segments)
+      const blobs: Blob[] = []
+      for (const paragraph of ready) {
+        const updated = updatedParagraphs.find((p) => p.id === paragraph.id)
+        if (!updated?.audioUrl) continue
+        const response = await fetch(updated.audioUrl)
+        blobs.push(await response.blob())
       }
+      const stitched = await clientStitchParagraphs(blobs, {
+        projectId: state.projectId,
+        chapterId: state.activeChapterId,
+      })
+      setChapterDone(stitched.audioUrl, segments)
 
       finishGenerationSession()
       stopGenerationRun()
@@ -348,7 +263,6 @@ export function useStudioActions() {
       toast.error(message)
     }
   }, [
-    clientTts,
     paragraphs,
     resetPlayback,
     setChapterDone,
@@ -384,29 +298,16 @@ export function useStudioActions() {
       return
     }
 
-    const capabilities = clientTts ? await fetchServerCapabilities() : null
-    const hybridAlign = Boolean(clientTts && capabilities?.gentle)
-
     startGenerationSession([paragraph.id])
     setParagraphGenerating(paragraph.id)
     setGenerationParagraphPhase('synthesizing')
     const signal = beginGenerationRun()
     try {
-      if (clientTts) {
-        await applyClientParagraphResult(paragraph, appendParagraphGeneration, {
-          projectId: state.projectId,
-          align: hybridAlign,
-          onAlignStart: () => setGenerationParagraphPhase('aligning'),
-          signal,
-          isCancelled,
-        })
-      } else {
-        const result = await generateConversation(
-          [turnFromParagraph(paragraph.id, paragraph.text.trim(), paragraph.voice, paragraph.lengthScale)],
-          { signal }
-        )
-        await applyParagraphResult(paragraph, result, appendParagraphGeneration)
-      }
+      await applyClientParagraphResult(paragraph, appendParagraphGeneration, {
+        projectId: state.projectId,
+        signal,
+        isCancelled,
+      })
       advanceGenerationSession(paragraph.id)
       finishGenerationSession()
       stopGenerationRun()
@@ -430,7 +331,6 @@ export function useStudioActions() {
       toast.error(message)
     }
   }, [
-    clientTts,
     paragraphs,
     selectedParagraphId,
     appendParagraphGeneration,

@@ -24,7 +24,6 @@ import { useStudioStore } from '@/stores/studio'
 
 type ExportAction =
   | 'full-mix-wav'
-  | 'full-mix-mp3'
   | 'paragraphs-zip'
   | 'subtitles-srt'
   | 'subtitles-vtt'
@@ -97,17 +96,6 @@ export function ExportMenu() {
           >
             {busyAction === 'full-mix-wav' ? <Spinner /> : <FileAudio />}
             Full mix (WAV)
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!fullMixReady || busyAction !== null}
-            onClick={() =>
-              void runExport('full-mix-mp3', () =>
-                exportFullMix(paragraphs, chapter, 'mp3', projectTitle, chapterTitle)
-              )
-            }
-          >
-            {busyAction === 'full-mix-mp3' ? <Spinner /> : <FileAudio />}
-            Full mix (MP3)
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={!paragraphsReady || busyAction !== null}

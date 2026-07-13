@@ -1,4 +1,4 @@
-import { Moon, Sun } from 'lucide-react'
+import { Monitor, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -19,16 +19,36 @@ export function ThemeToggle() {
     )
   }
 
-  const isDark = (theme === 'system' ? resolvedTheme : theme) === 'dark'
+  const isDark = resolvedTheme === 'dark'
+
+  function cycleTheme() {
+    if (theme === 'light') setTheme('dark')
+    else if (theme === 'dark') setTheme('system')
+    else setTheme('light')
+  }
+
+  const label =
+    theme === 'system'
+      ? 'Theme: match system (click for light)'
+      : theme === 'dark'
+        ? 'Theme: dark (click for system)'
+        : 'Theme: light (click for dark)'
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      aria-label="Toggle theme"
+      onClick={cycleTheme}
+      aria-label={label}
+      title={label}
     >
-      {isDark ? <Sun /> : <Moon />}
+      {theme === 'system' ? (
+        <Monitor />
+      ) : isDark ? (
+        <Moon />
+      ) : (
+        <Sun />
+      )}
     </Button>
   )
 }

@@ -1,16 +1,19 @@
-import { startTransition, useEffect } from 'react'
+import { useEffect } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ParagraphBlock } from '@/components/ParagraphBlock'
 import { ScriptComposer } from '@/components/studio/ScriptComposer'
 import { scrollToParagraph } from '@/lib/scroll-to-paragraph'
-import type { VoiceInfo } from '@/lib/api'
-import type { Paragraph, PlaybackState } from '@/stores/studio'
+import type { VoiceInfo } from '@/lib/voices'
+import type { Paragraph } from '@/stores/studio'
 
 interface ScriptTimelineProps {
   paragraphs: Paragraph[]
   voices: VoiceInfo[]
   hydrated: boolean
-  playback: PlaybackState
+  isPlaying: boolean
+  activeParagraphId: string | null
+  activeWordIndex: number | null
+  voiceIdsInUse: string[]
   selectedParagraphId: string | null
   onSelectParagraph: (id: string) => void
   onImportOpen?: () => void
@@ -33,16 +36,18 @@ export function ScriptTimeline({
   paragraphs,
   voices: _voices,
   hydrated,
-  playback,
+  isPlaying,
+  activeParagraphId,
+  activeWordIndex,
+  voiceIdsInUse,
   selectedParagraphId,
   onSelectParagraph,
   onImportOpen,
 }: ScriptTimelineProps) {
   useEffect(() => {
-    const activeId = playback.activeParagraphId
-    if (!activeId || !playback.isPlaying) return
-    scrollToParagraph(activeId)
-  }, [playback.activeParagraphId, playback.isPlaying])
+    if (!activeParagraphId || !isPlaying) return
+    scrollToParagraph(activeParagraphId)
+  }, [activeParagraphId, isPlaying])
 
   return (
     <div className="relative mx-auto w-full max-w-3xl px-6 py-8">
@@ -57,20 +62,21 @@ export function ScriptTimeline({
         ) : (
           <>
             {paragraphs.map((paragraph, index) => {
-              const isActivePlayback = playback.activeParagraphId === paragraph.id
-              const isPlayingParagraph =
-                playback.isPlaying && playback.activeParagraphId === paragraph.id
+              const isActivePlayback = activeParagraphId === paragraph.id
+              const isPlayingParagraph = isPlaying && activeParagraphId === paragraph.id
 
               return (
                 <ParagraphBlock
                   key={paragraph.id}
                   paragraph={paragraph}
                   index={index}
+                  paragraphCount={paragraphs.length}
                   isSelected={selectedParagraphId === paragraph.id}
                   isActive={isActivePlayback}
                   isPlaying={isPlayingParagraph}
-                  activeWordIndex={isActivePlayback ? playback.activeWordIndex : null}
-                  onSelect={() => startTransition(() => onSelectParagraph(paragraph.id))}
+                  activeWordIndex={isActivePlayback ? activeWordIndex : null}
+                  voiceIdsInUse={voiceIdsInUse}
+                  onSelectParagraph={onSelectParagraph}
                   onImportOpen={onImportOpen}
                 />
               )

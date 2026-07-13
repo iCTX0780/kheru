@@ -3,9 +3,7 @@ import { isClipAtEnd, prepareAudioElementForPlay, sequenceClipKey } from './play
 
 describe('playback-clip', () => {
   it('sequenceClipKey includes audio url', () => {
-    expect(sequenceClipKey(2, 'p1', '/api/audio/abcd1234')).toBe(
-      'seq:2:p1:/api/audio/abcd1234'
-    )
+    expect(sequenceClipKey(2, 'p1', 'blob:abcd1234')).toBe('seq:2:p1:blob:abcd1234')
   })
 
   it('isClipAtEnd uses fallback when duration is missing', () => {

@@ -10,8 +10,20 @@ interface WaveformCanvasProps {
   onSeek: (time: number) => void
   disabled?: boolean
   className?: string
-  preferPeaks?: boolean
   estimatedDuration?: number
+}
+
+interface CanvasLayout {
+  width: number
+  height: number
+  dpr: number
+  barWidth: number
+}
+
+interface CanvasStyles {
+  bg: string
+  bar: string
+  played: string
 }
 
 export function WaveformCanvas({
@@ -21,15 +33,18 @@ export function WaveformCanvas({
   onSeek,
   disabled,
   className,
-  preferPeaks,
   estimatedDuration,
 }: WaveformCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dataRef = useRef<WaveformData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const layoutRef = useRef<CanvasLayout | null>(null)
+  const stylesRef = useRef<CanvasStyles | null>(null)
+  const lastPlayedBarRef = useRef(-1)
+  const lastPlayheadXRef = useRef(-1)
   const [decoded, setDecoded] = useState(false)
 
-  const draw = useCallback(() => {
+  const drawStatic = useCallback(() => {
     const canvas = canvasRef.current
     const data = dataRef.current
     const container = containerRef.current
@@ -40,68 +55,146 @@ export function WaveformCanvas({
     if (width <= 0 || height <= 0) return
 
     const dpr = window.devicePixelRatio || 1
-    canvas.width = width * dpr
-    canvas.height = height * dpr
-    canvas.style.width = `${width}px`
-    canvas.style.height = `${height}px`
+    const needsResize =
+      !layoutRef.current ||
+      layoutRef.current.width !== width ||
+      layoutRef.current.height !== height ||
+      layoutRef.current.dpr !== dpr
+
+    if (needsResize) {
+      canvas.width = width * dpr
+      canvas.height = height * dpr
+      canvas.style.width = `${width}px`
+      canvas.style.height = `${height}px`
+    }
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    ctx.scale(dpr, dpr)
-    ctx.clearRect(0, 0, width, height)
+    if (needsResize) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
 
     const styles = getComputedStyle(container)
-    const bg = styles.getPropertyValue('--waveform-bg').trim() || '#1a1a1a'
-    const bar = styles.getPropertyValue('--waveform-bar').trim() || '#333'
-    const played = styles.getPropertyValue('--waveform-played').trim() || '#888'
-
-    ctx.fillStyle = bg
-    ctx.fillRect(0, 0, width, height)
+    stylesRef.current = {
+      bg: styles.getPropertyValue('--waveform-bg').trim() || '#1a1a1a',
+      bar: styles.getPropertyValue('--waveform-bar').trim() || '#333',
+      played: styles.getPropertyValue('--waveform-played').trim() || '#888',
+    }
 
     const { samples, maxAmplitude } = data
     const barWidth = Math.max(1, width / samples.length)
-    const progress = duration > 0 ? currentTime / duration : 0
-    const progressX = progress * width
+    layoutRef.current = { width, height, dpr, barWidth }
+
+    ctx.clearRect(0, 0, width, height)
+    ctx.fillStyle = stylesRef.current.bg
+    ctx.fillRect(0, 0, width, height)
 
     samples.forEach((sample, i) => {
       const x = i * barWidth
       const barHeight = Math.max(2, (sample / maxAmplitude) * (height - 4))
       const y = (height - barHeight) / 2
-      ctx.fillStyle = x + barWidth <= progressX ? played : bar
+      ctx.fillStyle = stylesRef.current!.bar
       ctx.fillRect(x, y, Math.max(1, barWidth - 0.5), barHeight)
     })
 
-    ctx.fillStyle = played
-    ctx.fillRect(Math.min(progressX, width - 1), 0, 2, height)
-  }, [currentTime, duration])
+    lastPlayedBarRef.current = -1
+    lastPlayheadXRef.current = -1
+  }, [])
+
+  const updateProgress = useCallback((time: number, totalDuration: number) => {
+    const canvas = canvasRef.current
+    const data = dataRef.current
+    const layout = layoutRef.current
+    const styles = stylesRef.current
+    if (!canvas || !data || !layout || !styles) return
+
+    const { width, height, barWidth } = layout
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const progress = totalDuration > 0 ? time / totalDuration : 0
+    const progressX = Math.min(progress * width, width)
+    const playedBarCount = Math.floor(progressX / barWidth)
+
+    const { samples, maxAmplitude } = data
+    const prevPlayed = lastPlayedBarRef.current
+    const prevPlayheadX = lastPlayheadXRef.current
+
+    if (playedBarCount > prevPlayed) {
+      for (let i = Math.max(0, prevPlayed + 1); i <= playedBarCount && i < samples.length; i++) {
+        const x = i * barWidth
+        const barHeight = Math.max(2, (samples[i]! / maxAmplitude) * (height - 4))
+        const y = (height - barHeight) / 2
+        ctx.fillStyle = styles.played
+        ctx.fillRect(x, y, Math.max(1, barWidth - 0.5), barHeight)
+      }
+    } else if (playedBarCount < prevPlayed) {
+      for (let i = playedBarCount + 1; i <= prevPlayed && i < samples.length; i++) {
+        const x = i * barWidth
+        const barHeight = Math.max(2, (samples[i]! / maxAmplitude) * (height - 4))
+        const y = (height - barHeight) / 2
+        ctx.fillStyle = styles.bar
+        ctx.fillRect(x, y, Math.max(1, barWidth - 0.5), barHeight)
+      }
+    }
+
+    if (prevPlayheadX >= 0) {
+      ctx.fillStyle = styles.bg
+      ctx.fillRect(prevPlayheadX, 0, 2, height)
+      const barIndex = Math.floor(prevPlayheadX / barWidth)
+      if (barIndex >= 0 && barIndex < samples.length) {
+        const x = barIndex * barWidth
+        const barHeight = Math.max(2, (samples[barIndex]! / maxAmplitude) * (height - 4))
+        const y = (height - barHeight) / 2
+        ctx.fillStyle = barIndex <= playedBarCount ? styles.played : styles.bar
+        ctx.fillRect(x, y, Math.max(1, barWidth - 0.5), barHeight)
+      }
+    }
+
+    const playheadX = Math.min(progressX, width - 1)
+    ctx.fillStyle = styles.played
+    ctx.fillRect(playheadX, 0, 2, height)
+
+    lastPlayedBarRef.current = playedBarCount
+    lastPlayheadXRef.current = playheadX
+  }, [])
 
   useWaveform(
     audioUrl,
     (data) => {
       dataRef.current = data
       setDecoded(true)
-      draw()
+      drawStatic()
+      updateProgress(currentTime, duration)
     },
-    { preferPeaks, estimatedDuration }
+    { estimatedDuration }
   )
 
   useEffect(() => {
     setDecoded(false)
     dataRef.current = null
+    layoutRef.current = null
+    stylesRef.current = null
+    lastPlayedBarRef.current = -1
+    lastPlayheadXRef.current = -1
   }, [audioUrl])
 
   useEffect(() => {
-    draw()
-  }, [draw, currentTime, duration])
+    if (!decoded) return
+    updateProgress(currentTime, duration)
+  }, [currentTime, duration, decoded, updateProgress])
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-    const observer = new ResizeObserver(() => draw())
+    const observer = new ResizeObserver(() => {
+      drawStatic()
+      updateProgress(currentTime, duration)
+    })
     observer.observe(container)
     return () => observer.disconnect()
-  }, [draw])
+  }, [currentTime, duration, drawStatic, updateProgress])
 
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (disabled || !duration) return

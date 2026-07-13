@@ -1,6 +1,5 @@
 import type { Chapter, Paragraph } from '@/stores/studio'
 import { syncParagraphFromActiveGeneration } from '@/lib/paragraph-generations'
-import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import {
   loadChapterAudioOpfs,
   loadLegacyParagraphAudioOpfs,
@@ -60,7 +59,7 @@ export async function restoreClientAudioFromOpfs(
   paragraphs: Paragraph[],
   chapter: Chapter
 ): Promise<{ paragraphs: Paragraph[]; chapter: Chapter }> {
-  if (!isClientTtsEnabled() || !opfsAudioSupported()) {
+  if (!opfsAudioSupported()) {
     return { paragraphs, chapter }
   }
 
@@ -114,7 +113,7 @@ export async function restoreClientAudioFromOpfs(
   return { paragraphs: nextParagraphs, chapter: nextChapter }
 }
 
-/** Check persisted audio URLs still resolve (server HEAD or blob/OPFS). */
+/** Check persisted audio URLs still resolve. */
 export async function validateStudioAudio(
   paragraphs: Paragraph[],
   chapter: Chapter

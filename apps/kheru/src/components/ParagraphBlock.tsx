@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, startTransition, useCallback, useRef, useState } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,22 +22,26 @@ import { cn } from '@/lib/utils'
 interface ParagraphBlockProps {
   paragraph: Paragraph
   index: number
+  paragraphCount: number
   isSelected: boolean
   isActive: boolean
   isPlaying: boolean
   activeWordIndex: number | null
-  onSelect: () => void
+  voiceIdsInUse: string[]
+  onSelectParagraph: (id: string) => void
   onImportOpen?: () => void
 }
 
 export const ParagraphBlock = memo(function ParagraphBlock({
   paragraph,
   index,
+  paragraphCount,
   isSelected,
   isActive,
   isPlaying,
   activeWordIndex,
-  onSelect,
+  voiceIdsInUse,
+  onSelectParagraph,
   onImportOpen,
 }: ParagraphBlockProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -47,11 +51,13 @@ export const ParagraphBlock = memo(function ParagraphBlock({
   const updateParagraph = useStudioStore((s) => s.updateParagraph)
   const removeParagraph = useStudioStore((s) => s.removeParagraph)
   const moveParagraph = useStudioStore((s) => s.moveParagraph)
-  const paragraphs = useStudioStore((s) => s.paragraphs)
 
-  const voiceIdsInUse = paragraphs.map((p) => p.voice)
   const hasText = paragraph.text.trim().length > 0
   const isGenerating = paragraph.status === 'generating'
+
+  const handleSelect = useCallback(() => {
+    startTransition(() => onSelectParagraph(paragraph.id))
+  }, [onSelectParagraph, paragraph.id])
 
   useAutoResizeTextarea(textareaRef, paragraph.text)
 
@@ -90,7 +96,7 @@ export const ParagraphBlock = memo(function ParagraphBlock({
     <article
       id={`paragraph-${paragraph.id}`}
       className="flex gap-3"
-      onClick={onSelect}
+      onClick={handleSelect}
     >
       <VoiceAvatar
         voiceId={paragraph.voice}
@@ -129,7 +135,7 @@ export const ParagraphBlock = memo(function ParagraphBlock({
               type="button"
               variant="ghost"
               size="icon-xs"
-              disabled={index === paragraphs.length - 1}
+              disabled={index === paragraphCount - 1}
               onClick={(e) => {
                 e.stopPropagation()
                 moveParagraph(paragraph.id, 'down')
@@ -156,7 +162,7 @@ export const ParagraphBlock = memo(function ParagraphBlock({
                 <DropdownMenuGroup>
                   <DropdownMenuItem
                     variant="destructive"
-                    disabled={paragraphs.length <= 1}
+                    disabled={paragraphCount <= 1}
                     onClick={() => removeParagraph(paragraph.id)}
                   >
                     <Trash2 />
@@ -200,7 +206,7 @@ export const ParagraphBlock = memo(function ParagraphBlock({
                 id={`dialogue-${paragraph.id}`}
                 value={paragraph.text}
                 rows={1}
-                onFocus={onSelect}
+                onFocus={handleSelect}
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => handleChange(e.target.value)}
                 onKeyDown={(e) => {

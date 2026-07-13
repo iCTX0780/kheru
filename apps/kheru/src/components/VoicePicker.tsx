@@ -9,8 +9,8 @@ import {
 } from '@/components/ui/select'
 import { Volume2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { VoiceInfo } from '@/lib/api'
-import { voiceSampleUrl } from '@/lib/voice-catalog'
+import { getVoicePreviewUrl } from '@/lib/client-tts/voice-preview'
+import type { VoiceInfo } from '@/lib/voices'
 
 const previewAudio = typeof Audio !== 'undefined' ? new Audio() : null
 
@@ -30,26 +30,35 @@ export function VoicePicker({ voices, value, onValueChange, disabled }: VoicePic
     previewAudio.pause()
     playingRef.current = voiceId
 
-    const onReady = () => {
-      previewAudio.removeEventListener('canplaythrough', onReady)
-      previewAudio.removeEventListener('error', onError)
-      if (playingRef.current !== voiceId) return
-      void previewAudio.play().catch(() => {
-        toast.error('Voice preview failed — try again in a moment')
+    void getVoicePreviewUrl(voiceId)
+      .then((url) => {
+        if (playingRef.current !== voiceId) return
+
+        const onReady = () => {
+          previewAudio.removeEventListener('canplaythrough', onReady)
+          previewAudio.removeEventListener('error', onError)
+          if (playingRef.current !== voiceId) return
+          void previewAudio.play().catch(() => {
+            toast.error('Voice preview failed — try again in a moment')
+          })
+        }
+
+        const onError = () => {
+          previewAudio.removeEventListener('canplaythrough', onReady)
+          previewAudio.removeEventListener('error', onError)
+          if (playingRef.current !== voiceId) return
+          toast.error('Voice preview failed — first preview may take up to a minute')
+        }
+
+        previewAudio.addEventListener('canplaythrough', onReady, { once: true })
+        previewAudio.addEventListener('error', onError, { once: true })
+        previewAudio.src = url
+        previewAudio.load()
       })
-    }
-
-    const onError = () => {
-      previewAudio.removeEventListener('canplaythrough', onReady)
-      previewAudio.removeEventListener('error', onError)
-      if (playingRef.current !== voiceId) return
-      toast.error('Voice preview failed — first preview may take up to a minute')
-    }
-
-    previewAudio.addEventListener('canplaythrough', onReady, { once: true })
-    previewAudio.addEventListener('error', onError, { once: true })
-    previewAudio.src = voiceSampleUrl(voiceId)
-    previewAudio.load()
+      .catch(() => {
+        if (playingRef.current !== voiceId) return
+        toast.error('Voice preview failed — model may still be loading')
+      })
   }
 
   return (

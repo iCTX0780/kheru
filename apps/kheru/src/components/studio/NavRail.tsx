@@ -39,7 +39,7 @@ export function NavRail() {
   const chapters = useStudioStore((s) => s.chapters)
   const activeChapterId = useStudioStore((s) => s.activeChapterId)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
-  const playback = useStudioStore((s) => s.playback)
+  const activeParagraphId = useStudioStore((s) => s.playback.activeParagraphId)
   const chapterTitle = useStudioStore((s) => s.chapterTitle)
   const setChapterTitle = useStudioStore((s) => s.setChapterTitle)
   const setSelectedParagraphId = useStudioStore((s) => s.setSelectedParagraphId)
@@ -198,7 +198,7 @@ export function NavRail() {
         <ul className="flex flex-col gap-0.5 pb-4">
           {paragraphs.map((paragraph, index) => {
             const isSelected = selectedParagraphId === paragraph.id
-            const isActive = playback.activeParagraphId === paragraph.id
+            const isActive = activeParagraphId === paragraph.id
             const preview = paragraph.text.trim().slice(0, 48) || `Paragraph ${index + 1}`
             const subtitle = paragraph.speaker
               ? `¶ ${index + 1} · ${paragraph.speaker.toUpperCase()}`

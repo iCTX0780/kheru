@@ -1,9 +1,9 @@
-import { startTransition, useCallback, useEffect, useRef } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ScriptTimeline } from '@/components/studio/ScriptTimeline'
 import { scrollToParagraph, setTimelineScrollViewport } from '@/lib/scroll-to-paragraph'
 import { useStudioStore } from '@/stores/studio'
-import type { VoiceInfo } from '@/lib/api'
+import type { VoiceInfo } from '@/lib/voices'
 
 interface ScriptCanvasProps {
   voices: VoiceInfo[]
@@ -13,10 +13,14 @@ interface ScriptCanvasProps {
 
 export function ScriptCanvas({ voices, hydrated, onImportOpen }: ScriptCanvasProps) {
   const paragraphs = useStudioStore((s) => s.paragraphs)
-  const playback = useStudioStore((s) => s.playback)
+  const playbackIsPlaying = useStudioStore((s) => s.playback.isPlaying)
+  const playbackActiveParagraphId = useStudioStore((s) => s.playback.activeParagraphId)
+  const playbackActiveWordIndex = useStudioStore((s) => s.playback.activeWordIndex)
   const generationSession = useStudioStore((s) => s.generationSession)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
   const setSelectedParagraphId = useStudioStore((s) => s.setSelectedParagraphId)
+
+  const voiceIdsInUse = useMemo(() => paragraphs.map((p) => p.voice), [paragraphs])
 
   const containerRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -93,7 +97,10 @@ export function ScriptCanvas({ voices, hydrated, onImportOpen }: ScriptCanvasPro
           paragraphs={paragraphs}
           voices={voices}
           hydrated={hydrated}
-          playback={playback}
+          isPlaying={playbackIsPlaying}
+          activeParagraphId={playbackActiveParagraphId}
+          activeWordIndex={playbackActiveWordIndex}
+          voiceIdsInUse={voiceIdsInUse}
           selectedParagraphId={selectedParagraphId}
           onSelectParagraph={setSelectedParagraphId}
           onImportOpen={onImportOpen}

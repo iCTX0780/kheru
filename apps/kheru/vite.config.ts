@@ -21,13 +21,7 @@ const config = defineConfig({
     suppressBenignDevErrors(),
     nitro({
       rollupConfig: {
-        external: [
-          /^@sentry\//,
-          'kokoro-js',
-          '@huggingface/transformers',
-          'onnxruntime-node',
-          'sharp',
-        ],
+        external: [/^@sentry\//, 'kokoro-js', '@huggingface/transformers', 'sharp'],
       },
     }),
     tailwindcss(),

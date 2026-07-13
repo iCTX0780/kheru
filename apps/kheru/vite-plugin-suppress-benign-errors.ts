@@ -1,4 +1,4 @@
-import type { Plugin, ViteDevServer } from 'vite'
+import type { HotPayload, Plugin, ViteDevServer } from 'vite'
 
 const BENIGN_SOCKET_ERRORS = new Set(['ECONNRESET', 'EPIPE', 'ERR_STREAM_PREMATURE_CLOSE'])
 
@@ -14,7 +14,7 @@ function patchDevServer(server: ViteDevServer): void {
   const hot = server.environments?.client?.hot
   if (hot) {
     const originalSend = hot.send.bind(hot)
-    hot.send = (payload) => {
+    hot.send = (payload: HotPayload) => {
       if (
         payload.type === 'error' &&
         payload.err?.message &&

@@ -27,7 +27,7 @@ import { GenerationProgressPanel } from '@/components/studio/GenerationProgressP
 import { ClientTtsLoadBanner } from '@/components/studio/ClientTtsLoadBanner'
 import { VoicePicker } from '@/components/VoicePicker'
 import { cn } from '@/lib/utils'
-import type { VoiceInfo } from '@/lib/api'
+import type { VoiceInfo } from '@/lib/voices'
 
 type ImportStep = 'paste' | 'speakers'
 

@@ -17,8 +17,3 @@ export async function fetchAudioBuffer(url: string): Promise<ArrayBuffer> {
   }
   return response.arrayBuffer()
 }
-
-export function runIdFromAudioUrl(audioUrl: string): string | null {
-  const match = audioUrl.match(/\/api\/audio\/([0-9a-f]{8})$/)
-  return match?.[1] ?? null
-}

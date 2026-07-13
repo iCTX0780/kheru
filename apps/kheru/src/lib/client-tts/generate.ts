@@ -4,14 +4,12 @@ import {
   splitTextForTts,
 } from '@/lib/chunk-text'
 import { prepareTextForTts } from '@/lib/tts-prepare-text'
-import { alignParagraphAudio } from '@/lib/client-tts/align'
 import { createManagedBlobUrl } from '@/lib/client-tts/blob-registry'
 import { GenerationCancelledError } from '@/lib/generation-cancel'
 import { concatWavBlobs, concatWavBlobsDuration } from '@/lib/client-tts/concat-blobs'
 import { clientTtsGenerate } from '@/lib/client-tts/engine'
 import type { ClientGenerateResult, ClientTtsTurn } from '@/lib/client-tts/types'
 import { saveChapterAudioOpfs, saveParagraphAudioOpfs } from '@/lib/client-tts/opfs'
-import type { WordTiming } from '@/lib/playback-words'
 import { PARAGRAPH_GAP_SECONDS } from '@/lib/playback-segments'
 import { kokoroSpeedFromLengthScale } from '@/lib/speed'
 import { VOICE_BY_ID } from '@/lib/voice-catalog'
@@ -66,14 +64,11 @@ export interface ClientGenerateOptions {
   projectId?: string
   paragraphId?: string
   generationId?: string
-  /** When true, POST synthesized audio to /api/align when Gentle is up. */
-  align?: boolean
-  onAlignStart?: () => void
   signal?: AbortSignal
   isCancelled?: () => boolean
 }
 
-/** Generate one paragraph clip in the browser; optional Gentle align via server proxy. */
+/** Generate one paragraph clip in the browser. */
 export async function clientGenerateParagraph(
   turn: ClientTtsTurn,
   options?: ClientGenerateOptions
@@ -100,22 +95,13 @@ export async function clientGenerateParagraph(
     )
   }
 
-  let wordTimings: WordTiming[] | null = null
-  if (options?.align) {
-    if (options?.isCancelled?.()) {
-      throw new GenerationCancelledError()
-    }
-    options.onAlignStart?.()
-    wordTimings = await alignParagraphAudio(blob, spoken, options.signal)
-  }
-
   return {
     blob,
     duration,
     audioUrl,
     segments: [{ index: 0, start: 0, end: duration }],
     clips: [{ index: 0, blob, duration, audioUrl }],
-    wordTimings,
+    wordTimings: null,
   }
 }
 

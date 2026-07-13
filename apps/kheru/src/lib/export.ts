@@ -1,9 +1,8 @@
 import { buildSegmentsFromParagraphs, playableParagraphs, PARAGRAPH_GAP_SECONDS } from '@/lib/playback-segments'
-import { downloadBlob, fetchAudioBuffer, runIdFromAudioUrl } from '@/lib/export-download'
+import { downloadBlob, fetchAudioBuffer } from '@/lib/export-download'
 import { exportBaseName } from '@/lib/export-filename'
 import { buildZip } from '@/lib/export-zip'
 import { buildParagraphCues, buildSrt, buildVtt, buildWordCues } from '@/lib/export-subtitles'
-import { isClientTtsEnabled } from '@/lib/client-tts/config'
 import { concatWavBlobs } from '@/lib/client-tts/concat-blobs'
 import type { Chapter, Paragraph } from '@/stores/studio'
 
@@ -25,31 +24,9 @@ function subtitleParagraphs(paragraphs: Paragraph[], chapter: Chapter) {
     : playableParagraphs(paragraphs)
 }
 
-function isBlobAudioUrl(url: string): boolean {
-  return url.startsWith('blob:')
-}
-
-/** Run ids for a single concatenated export, preferring an existing chapter mix. */
-export function fullMixRunIds(paragraphs: Paragraph[], chapter: Chapter): string[] {
-  if (chapter.status === 'done' && chapter.audioUrl && !isBlobAudioUrl(chapter.audioUrl)) {
-    const runId = runIdFromAudioUrl(chapter.audioUrl)
-    if (runId) return [runId]
-  }
-
-  return playableParagraphs(paragraphs)
-    .map((paragraph) => {
-      if (!paragraph.audioUrl || isBlobAudioUrl(paragraph.audioUrl)) return null
-      return runIdFromAudioUrl(paragraph.audioUrl)
-    })
-    .filter((runId): runId is string => runId !== null)
-}
-
 export function canExportFullMix(paragraphs: Paragraph[], chapter: Chapter): boolean {
-  if (isClientTtsEnabled()) {
-    if (chapter.status === 'done' && chapter.audioUrl) return true
-    return playableParagraphs(paragraphs).some((p) => p.audioUrl)
-  }
-  return fullMixRunIds(paragraphs, chapter).length > 0
+  if (chapter.status === 'done' && chapter.audioUrl) return true
+  return playableParagraphs(paragraphs).some((p) => p.audioUrl)
 }
 
 export function canExportParagraphs(paragraphs: Paragraph[]): boolean {
@@ -58,16 +35,6 @@ export function canExportParagraphs(paragraphs: Paragraph[]): boolean {
 
 export function canExportSubtitles(paragraphs: Paragraph[], chapter: Chapter): boolean {
   return canExportFullMix(paragraphs, chapter)
-}
-
-async function parseExportError(response: Response): Promise<string> {
-  try {
-    const data = (await response.json()) as { detail?: string }
-    if (typeof data.detail === 'string') return data.detail
-  } catch {
-    /* ignore */
-  }
-  return response.statusText || 'Export failed'
 }
 
 async function exportFullMixClient(
@@ -108,40 +75,10 @@ export async function exportFullMix(
   projectTitle: string,
   chapterTitle: string
 ): Promise<void> {
-  if (isClientTtsEnabled()) {
-    if (format === 'mp3') {
-      throw new Error('MP3 export is not available in offline client mode — use WAV')
-    }
-    await exportFullMixClient(paragraphs, chapter, projectTitle, chapterTitle)
-    return
+  if (format === 'mp3') {
+    throw new Error('MP3 export is not available in the browser — use WAV')
   }
-
-  const runIds = fullMixRunIds(paragraphs, chapter)
-  if (runIds.length === 0) {
-    throw new Error('Generate at least one paragraph, or generate chapter first')
-  }
-
-  const base = exportBaseName(projectTitle, chapterTitle)
-
-  if (runIds.length === 1 && format === 'wav') {
-    const buffer = await fetchAudioBuffer(`/api/audio/${runIds[0]}`)
-    downloadBlob(new Blob([buffer], { type: 'audio/wav' }), `${base}.wav`)
-    return
-  }
-
-  const response = await fetch('/api/export', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ run_ids: runIds, format, filename: `${base}.${format}` }),
-  })
-
-  if (!response.ok) {
-    throw new Error(await parseExportError(response))
-  }
-
-  const buffer = await response.arrayBuffer()
-  const mimeType = format === 'mp3' ? 'audio/mpeg' : 'audio/wav'
-  downloadBlob(new Blob([buffer], { type: mimeType }), `${base}.${format}`)
+  await exportFullMixClient(paragraphs, chapter, projectTitle, chapterTitle)
 }
 
 export async function exportParagraphsZip(

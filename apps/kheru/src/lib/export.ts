@@ -37,18 +37,9 @@ export function canExportSubtitles(paragraphs: Paragraph[], chapter: Chapter): b
   return canExportFullMix(paragraphs, chapter)
 }
 
-async function exportFullMixClient(
-  paragraphs: Paragraph[],
-  chapter: Chapter,
-  projectTitle: string,
-  chapterTitle: string
-): Promise<void> {
-  const base = exportBaseName(projectTitle, chapterTitle)
-
+async function fetchFullMixBuffer(paragraphs: Paragraph[], chapter: Chapter): Promise<ArrayBuffer> {
   if (chapter.status === 'done' && chapter.audioUrl) {
-    const buffer = await fetchAudioBuffer(chapter.audioUrl)
-    downloadBlob(new Blob([buffer], { type: 'audio/wav' }), `${base}.wav`)
-    return
+    return fetchAudioBuffer(chapter.audioUrl)
   }
 
   const exportable = playableParagraphs(paragraphs)
@@ -65,7 +56,18 @@ async function exportFullMixClient(
 
   const gaps = Array.from({ length: Math.max(blobs.length - 1, 0) }, () => PARAGRAPH_GAP_SECONDS)
   const stitched = blobs.length === 1 ? blobs[0] : await concatWavBlobs(blobs, gaps)
-  downloadBlob(stitched, `${base}.wav`)
+  return stitched.arrayBuffer()
+}
+
+async function exportFullMixClient(
+  paragraphs: Paragraph[],
+  chapter: Chapter,
+  projectTitle: string,
+  chapterTitle: string
+): Promise<void> {
+  const base = exportBaseName(projectTitle, chapterTitle)
+  const buffer = await fetchFullMixBuffer(paragraphs, chapter)
+  downloadBlob(new Blob([buffer], { type: 'audio/wav' }), `${base}.wav`)
 }
 
 export async function exportFullMix(

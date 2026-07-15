@@ -1,6 +1,6 @@
 # Contributing to Kheru
 
-Thank you for helping improve Kheru. This project exists to turn scripts into rehearsal-quality voices — starting with **English (US) Kokoro**, with room to grow into other dialects and languages through community contributions.
+Thank you for helping improve Kheru. This project turns scripts into multi-speaker spoken audio — **podcast and long-form episodes first**, starting with **English (US) Kokoro**, with room to grow into other dialects and languages through community contributions.
 
 ## Before you start
 
@@ -137,10 +137,11 @@ flowchart LR
 
 **In scope and welcome:**
 
-- English rehearsal quality (pronunciation, chunking, studio UX)
-- Kokoro voice curation and previews
+- Podcast / long-form episode quality (stitch, crossfade, export packs)
+- English speech quality (pronunciation, chunking, studio UX)
+- Kokoro voice curation, host presets, and previews
 - Offline / hybrid client TTS improvements
-- Export formats and playback sync
+- Export formats, playback sync, and `.kheru` playpack writer (when scheduled)
 - Documentation and tests
 - **New English dialects** when Kokoro (or a contributed engine) supports them
 
@@ -149,13 +150,18 @@ flowchart LR
 - New TTS engines (Piper, XTTS, cloud APIs)
 - Non-English languages (chunking, UI, voice catalog design)
 - Large UI redesigns
-- Hosted SaaS / multi-tenant infrastructure
+- Hosted SaaS / multi-tenant infrastructure / Stripe entitlements
+- Tauri desktop shell or Expo player scaffolds (see docs — drafted, not current work)
+- Voice cloning for branded podcast hosts (not a near-term promise)
 
 **Likely out of scope:**
 
-- Voice cloning or training pipelines
-- Real-time conversational TTS
+- Voice cloning or training pipelines as a core feature
+- Real-time conversational TTS / OS-wide dictation
 - Features that require sending script text to third-party cloud APIs by default
+- Reviving HTML/LRC lyrics export workarounds (superseded by Kheru Player brief)
+
+Product direction: [docs/product-vision.md](docs/product-vision.md) · [docs/roadmap.md](docs/roadmap.md).
 
 If you are unsure, open a feature request — a short "is this in scope?" issue is fine.
 

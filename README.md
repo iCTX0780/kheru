@@ -1,14 +1,20 @@
 # Kheru
 
-Open-source offline rehearsal studio for scripted dialogue. Write paragraph-by-paragraph, assign Kokoro voices, generate audio in the browser, and play back with word-level highlighting.
+Open-core multi-speaker TTS studio in the browser. Write a script, assign voices, generate with Kokoro offline, stitch an episode, and export audio plus captions.
 
-**Client-only** — no server TTS, no Docker, no API routes. Projects live in IndexedDB; audio persists in OPFS when available.
+**Flagship use:** podcast and spoken-content production (educational explainers, chapter summaries, multi-host scripts). Same studio also works for dialogue and other scripted formats.
+
+**Client-only today** — no server TTS, no Docker, no API routes. Projects live in IndexedDB; audio persists in OPFS when available.
+
+> Monetization plan: free local studio core; paid Player / Cloud later. See [docs/commercial.md](docs/commercial.md).
 
 ## Documentation
 
 | Doc | Description |
 |-----|-------------|
-| [docs/README.md](docs/README.md) | Overview, concepts, doc index |
+| [docs/README.md](docs/README.md) | Full doc index (product, roadmap, commercial) |
+| [docs/product-vision.md](docs/product-vision.md) | Positioning and jobs-to-be-done |
+| [docs/roadmap.md](docs/roadmap.md) | Now / next / later |
 | [docs/architecture.md](docs/architecture.md) | System design, how to extend |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup, PRs, issues |
 | [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md) | Browser Kokoro, OPFS, export |
@@ -31,16 +37,17 @@ First Kokoro synthesis downloads the model (~5–15 MB).
 
 | Step | In the app |
 |------|------------|
-| Write | Paragraph blocks with voice + speed per block |
-| Generate | Per-paragraph or full chapter stitch (browser Kokoro) |
-| Play | Segmented timeline, estimated word highlights |
-| Export | WAV, SRT, ZIP (client-side download) |
+| Write | Paragraph / segment blocks with voice + speed |
+| Generate | Per-segment or full chapter (episode) stitch |
+| Review | Timeline playback, optional word highlights |
+| Export | WAV, SRT/VTT, ZIP (MP3 and `.kheru` playpack on the roadmap) |
 
 ## Project layout
 
 ```
 kheru/
 ├── apps/kheru/           # TanStack Start studio app
+├── docs/                 # Product, architecture, commercial strategy
 ├── legacy/               # Archived Python stack
 ├── Makefile
 └── package.json
@@ -57,7 +64,11 @@ make typecheck    # tsc --noEmit
 
 ## Voice catalog
 
-Six curated US Kokoro voices (`kokoro:af_heart`, `kokoro:am_michael`, etc.). Preview clips synthesize on demand in the browser.
+Six curated US Kokoro voices (`kokoro:af_heart`, `kokoro:am_michael`, etc.) — suitable as show hosts / narrators. Preview clips synthesize on demand in the browser.
+
+## License
+
+No root `LICENSE` file yet. Do not assume OSI terms until one is published. Commercial intent: [docs/commercial.md](docs/commercial.md).
 
 ## Legacy
 

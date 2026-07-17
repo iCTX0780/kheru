@@ -1,0 +1,13 @@
+HOST: Welcome. This is a short demo you can import into Kheru and generate with Kokoro.
+GUEST: Perfect. Keep the lines short, and speak like a real conversation.
+HOST: Right. Kokoro sounds more natural when sentences are clear, and when you avoid dense punctuation.
+GUEST: So, what should people try first?
+HOST: Create a project, import this script, assign two voices, then hit Generate all.
+GUEST: After that, play the full mix, tweak one paragraph, and generate that line again.
+HOST: For tech words, the built-in glossary helps. Say C I C D, or JSON, and Kokoro will usually handle it.
+GUEST: You can also force pronunciation. Write Docker [as: docker] if a name ever sounds wrong.
+HOST: Keep paragraphs to one or two sentences. Long walls of text are harder to listen to.
+GUEST: And leave a little air between ideas. Short turns make the stitch feel like a show.
+HOST: Export when you like a take. You get a full mix W A V, or a zip of each paragraph.
+GUEST: That is the loop. Write, generate, listen, revise, export.
+HOST: Thanks for trying Kheru. Have fun casting your hosts.

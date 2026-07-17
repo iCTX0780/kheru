@@ -48,6 +48,11 @@ Projects and audio stay in **this browser** (IndexedDB / OPFS). Clearing site da
    - Optional **speaker** label (handy for multi-host scripts)
 3. Or use **Import → Import script** to paste a labeled dialogue / outline and turn it into paragraphs.
 
+Sample scripts (Kokoro-friendly, paste via Import):
+
+- [`samples/kokoro-friendly-demo.txt`](../samples/kokoro-friendly-demo.txt) — short product walkthrough (two speakers)
+- [`samples/kokoro-tech-explainer.txt`](../samples/kokoro-tech-explainer.txt) — mini system-design show
+
 Use the left **Script** rail to jump between paragraphs.
 
 ---

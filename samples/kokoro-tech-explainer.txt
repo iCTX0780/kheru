@@ -1,0 +1,15 @@
+HOST: Today we explain system design in ten minutes. Topic one: why caching exists.
+GUEST: Because the database is expensive, and users hate waiting.
+HOST: Exactly. Put a cache in front of hot reads. Redis is a common choice.
+GUEST: What do we store there?
+HOST: Session data, rendered pages, and query results that change slowly.
+GUEST: And what goes wrong?
+HOST: Stale data. You need a clear rule for expiry, and for who updates the cache.
+GUEST: So, write through, or write behind, or invalidate on change.
+HOST: Start simple. Invalidate on write. Measure hit rate before you get clever.
+GUEST: Next beat: rate limits.
+HOST: Protect public APIs. Limit requests per user, and return a friendly error.
+GUEST: That keeps one noisy client from taking everyone down.
+HOST: Last idea: design for failure. Timeouts, retries with backoff, and clear logs.
+GUEST: Short sentences. Concrete verbs. That is how we keep Kokoro sounding human.
+HOST: End of the sample. Import it, cast two voices, and generate all.

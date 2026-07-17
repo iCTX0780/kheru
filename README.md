@@ -61,6 +61,7 @@ Ideas, bugs, and UX notes are welcome via [GitHub Issues](https://github.com/iCT
 
 ## Docs
 
+- [How to use](docs/how-to-use.md) — walkthrough for new users (`./how-to-use.sh`)
 - [CONTRIBUTING.md](CONTRIBUTING.md) — setup and PR checklist
 - [docs/client-tts.md](docs/client-tts.md) — browser Kokoro / OPFS notes
 

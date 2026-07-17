@@ -13,6 +13,7 @@ Open-core multi-speaker TTS studio in the browser. Write a script, assign voices
 | Doc | Description |
 |-----|-------------|
 | [docs/README.md](docs/README.md) | Full doc index (product, roadmap, commercial) |
+| [docs/free-docker-split.md](docs/free-docker-split.md) | Free Docker image vs private Pro repos |
 | [docs/product-vision.md](docs/product-vision.md) | Positioning and jobs-to-be-done |
 | [docs/roadmap.md](docs/roadmap.md) | Now / next / later |
 | [docs/architecture.md](docs/architecture.md) | System design, how to extend |
@@ -60,6 +61,11 @@ make dev          # http://127.0.0.1:3000
 make build        # production build
 make test         # vitest
 make typecheck    # tsc --noEmit
+
+# Free studio in Docker (serves the app; TTS still runs in the browser)
+make docker-build
+make docker-run   # http://127.0.0.1:3000
+# or: docker compose up --build
 ```
 
 ## Voice catalog

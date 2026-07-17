@@ -1,3 +1,11 @@
+# Build context for free studio image — keep the image lean and secret-free.
+# See docs/free-docker-split.md
+
+.git
+.github
+.cursor
+.claude
+
 **/node_modules
 **/.output
 **/dist
@@ -7,16 +15,22 @@
 **/*.wav
 **/*.onnx
 **/*.onnx.json
+**/.env
+**/.env.*
+!**/.env.example
+
 voices/
 kokoro-models/
 voice-bakeoff/
-legacy/fastapi/.venv
-legacy/fastapi/venv
-legacy/fastapi/generated_audio
-legacy/fastapi/temp
-apps/kheru/data/audio
-apps/kheru/data/temp
-apps/kheru/data/transformers-cache
-.git
-.cursor
-.claude
+legacy/
+
+# Local studio data / caches (not part of free image)
+apps/kheru/data/
+apps/kheru/.vinxi/
+
+# Not required to compile the free studio
+docs/
+scripts/
+Makefile
+docker-compose.yml
+**/*.md

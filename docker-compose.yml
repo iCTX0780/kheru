@@ -1,0 +1,17 @@
+# Free Kheru studio (local smoke test for the public Docker image).
+# TTS still runs in the browser — this only serves the app.
+# Docs: docs/free-docker-split.md
+
+services:
+  kheru:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kheru:free
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+    restart: unless-stopped

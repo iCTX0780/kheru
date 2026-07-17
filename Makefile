@@ -1,4 +1,4 @@
-.PHONY: dev dev-kheru build test lint typecheck kokoro-js-spike
+.PHONY: dev dev-kheru build test lint typecheck kokoro-js-spike docker-build docker-run docker-up
 
 WITH_NODE := ./scripts/with-node.sh
 
@@ -21,3 +21,13 @@ lint:
 
 typecheck:
 	$(WITH_NODE) pnpm --filter kheru exec tsc --noEmit
+
+# Free studio image (serves app; TTS runs in the browser). See docs/free-docker-split.md
+docker-build:
+	docker build -t kheru:free .
+
+docker-run: docker-build
+	docker run --rm -p 3000:3000 -e HOST=0.0.0.0 -e PORT=3000 kheru:free
+
+docker-up:
+	docker compose up --build

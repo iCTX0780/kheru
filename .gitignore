@@ -33,3 +33,6 @@ legacy/*.wav
 # Voice bake-off artifacts
 voice-bakeoff/
 kokoro-models/
+
+# Editor / agent local plans (not for collaborators)
+.cursor/

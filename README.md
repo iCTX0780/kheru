@@ -2,25 +2,9 @@
 
 Open-core multi-speaker TTS studio in the browser. Write a script, assign voices, generate with Kokoro offline, stitch an episode, and export audio.
 
-**Flagship use:** podcast and spoken-content production (educational explainers, chapter summaries, multi-host scripts). Same studio also works for dialogue and other scripted formats.
+**Flagship use:** podcast and spoken-content production. Same studio also works for dialogue and other scripted formats.
 
 **Runs entirely in your browser** — Kokoro TTS is local; projects live in IndexedDB; audio persists in OPFS when available. Optional Docker packaging serves the same local app (not a remote TTS service).
-
-> Monetization plan: free local studio core; paid Player / Cloud later. See [docs/commercial.md](docs/commercial.md).
-
-## Documentation
-
-| Doc | Description |
-|-----|-------------|
-| **[docs/strategy-map.md](docs/strategy-map.md)** | **Full product plan index** (start here for the big picture) |
-| [docs/sharing.md](docs/sharing.md) | Invite a collaborator / friend checklist |
-| [docs/README.md](docs/README.md) | Full doc index |
-| [docs/roadmap.md](docs/roadmap.md) | Now / next / later |
-| [docs/product-vision.md](docs/product-vision.md) | Positioning and jobs-to-be-done |
-| [docs/free-docker-split.md](docs/free-docker-split.md) | Free Docker image vs private Pro repos |
-| [docs/architecture.md](docs/architecture.md) | System design, how to extend |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup, PRs, issues |
-| [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md) | Browser Kokoro, OPFS, export |
 
 ## Quick start
 
@@ -36,6 +20,14 @@ Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
 First Kokoro synthesis downloads the model (~5–15 MB).
 
+### Docker
+
+```bash
+make docker-build
+make docker-run   # http://127.0.0.1:3000
+# or: docker compose up --build
+```
+
 ## What it does
 
 | Step | In the app |
@@ -43,40 +35,33 @@ First Kokoro synthesis downloads the model (~5–15 MB).
 | Write | Paragraph / segment blocks with voice + speed |
 | Generate | Per-segment or full-mix stitch |
 | Review | Timeline playback, optional word highlights |
-| Export | WAV, ZIP (MP3 and `.kheru` playpack on the roadmap) |
+| Export | WAV, ZIP |
 
 ## Project layout
 
 ```
 kheru/
 ├── apps/kheru/           # TanStack Start studio app
-├── docs/                 # Product, architecture, commercial strategy
-├── legacy/               # Archived Python stack
 ├── Makefile
 └── package.json
 ```
 
-## Setup
+## Docs in this repo
 
-```bash
-make dev          # http://127.0.0.1:3000
-make build        # production build
-make test         # vitest
-make typecheck    # tsc --noEmit
+Only engineering notes that ship with the free studio:
 
-# Run the local studio in a container (TTS still runs in the browser)
-make docker-build
-make docker-run   # http://127.0.0.1:3000
-# or: docker compose up --build
-```
+- [CONTRIBUTING.md](CONTRIBUTING.md) — setup, PRs, issues
+- [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md) — browser Kokoro, OPFS, export
+
+Product / roadmap / commercial docs are **not** published in this repository.
 
 ## Voice catalog
 
-Six curated US Kokoro voices (`kokoro:af_heart`, `kokoro:am_michael`, etc.) — suitable as show hosts / narrators. Preview clips synthesize on demand in the browser.
+Six curated US Kokoro voices (`kokoro:af_heart`, `kokoro:am_michael`, etc.). Preview clips synthesize on demand in the browser.
 
 ## License
 
-No root `LICENSE` file yet. Do not assume OSI terms until one is published. Commercial intent: [docs/commercial.md](docs/commercial.md).
+No root `LICENSE` file yet. Do not assume OSI terms until one is published.
 
 ## Legacy
 

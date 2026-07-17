@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Describe the problem and your idea. For **new dialects, languages, or voices**, please read [Architecture → Adding dialects](https://github.com/iCTX0780/kheru/blob/main/docs/architecture.md#adding-dialects-and-locales) first.
+        Describe the problem and your idea. For **new dialects, languages, or voices**, open an issue first and wait for maintainer feedback on approach.
 
   - type: textarea
     id: problem

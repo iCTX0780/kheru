@@ -1,12 +1,12 @@
 # Contributing to Kheru
 
-Thank you for helping improve Kheru. This project turns scripts into multi-speaker spoken audio — **podcast and long-form episodes first**, starting with **English (US) Kokoro**, with room to grow into other dialects and languages through community contributions.
+Thank you for helping improve Kheru. This project turns scripts into multi-speaker spoken audio in the browser (Kokoro), with a focus on podcast and long-form English (US) episodes.
 
 ## Before you start
 
-1. Read the [strategy map](docs/strategy-map.md) (full product plan index) and [architecture guide](docs/architecture.md).
+1. Read [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md) for how client TTS works.
 2. Set up the dev environment (below).
-3. For non-trivial work, **open an issue first** — especially for new voices, locales, or TTS engines. That saves rework if the approach does not fit project direction.
+3. For non-trivial work, **open an issue first** — especially for new voices, locales, or TTS engines.
 
 ## Development setup
 
@@ -35,8 +35,6 @@ First Kokoro synthesis downloads the model in the browser (~5–15 MB).
 
 Copy `apps/kheru/.env.example` to `apps/kheru/.env.local` if you need local overrides. Kokoro runs in the browser — no TTS server env vars are required. Do not commit secrets or local `.env` files.
 
-See [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md).
-
 ## How to contribute
 
 ### Small fixes
@@ -56,7 +54,7 @@ Typos, test gaps, clear bugs with reproduction steps — PRs welcome without a p
 - [ ] `make typecheck` passes
 - [ ] Changes are scoped to the stated issue
 - [ ] New behavior has tests when practical (glossary, chunking, export)
-- [ ] User-facing changes are noted in PR description (no need for a CHANGELOG unless asked)
+- [ ] User-facing changes are noted in PR description
 
 ### Code style
 
@@ -73,18 +71,9 @@ Typos, test gaps, clear bugs with reproduction steps — PRs welcome without a p
 
 ## Issues and feature requests
 
-We use GitHub Issues with templates so reports are actionable.
-
 ### Bug reports
 
-Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.yml) when something breaks.
-
-Include:
-
-- Steps to reproduce
-- Expected vs actual behavior
-- Browser and OS
-- Relevant logs or screenshots
+Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.yml). Include steps, expected vs actual, browser and OS, and logs (redact private script text).
 
 **Good bug:** "Generate all on a 12-paragraph script stalls after paragraph 8 in Chrome 138 on macOS — console shows OPFS write failure."
 
@@ -92,76 +81,19 @@ Include:
 
 ### Feature requests
 
-Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.yml).
-
-Include:
-
-- Problem you are solving (user story)
-- Proposed solution or sketch
-- Whether it is locale/dialect/voice related
-- Willingness to implement it yourself
-
-### How we triage
-
-| Label | Meaning |
-|-------|---------|
-| `bug` | Confirmed defect |
-| `enhancement` | Feature or improvement |
-| `good first issue` | Small, well-scoped starter task |
-| `help wanted` | Maintainers welcome PRs |
-| `locale` | Dialect, language, or regional voice work |
-| `question` | Needs discussion before coding |
-
-**Typical flow:**
-
-```mermaid
-flowchart LR
-  New[New issue] --> Triage[Maintainer triage]
-  Triage --> Bug[bug — reproduce + fix]
-  Triage --> Enhance[enhancement — discuss scope]
-  Triage --> Question[question — clarify]
-  Enhance --> Approved[Approved for PR]
-  Enhance --> Deferred[Deferred / out of scope]
-  Approved --> PR[Contributor opens PR]
-  PR --> Review[Code review + CI]
-  Review --> Merge[Merge to main]
-```
+Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.yml). Include the problem, proposed approach, and whether it is locale/voice related.
 
 ### Project focus (what we prioritize)
 
-**In scope and welcome:**
+**In scope:** podcast/long-form quality (stitch, export), English speech quality, Kokoro voice curation, browser-local TTS, playback sync, documentation and tests.
 
-- Podcast / long-form episode quality (stitch, crossfade, export packs)
-- English speech quality (pronunciation, chunking, studio UX)
-- Kokoro voice curation, host presets, and previews
-- Browser-local TTS improvements
-- Export formats, playback sync, and `.kheru` playpack writer (when scheduled)
-- Documentation and tests
-- **New English dialects** when Kokoro (or a contributed engine) supports them
+**Discuss before building:** new TTS engines, non-English languages, large UI redesigns, hosted SaaS / Stripe, Tauri or Expo scaffolds. **Never add `apps/kheru-player` here** — Player lives in private [`iCTX0780/kheru-player`](https://github.com/iCTX0780/kheru-player).
 
-**Discuss before building:**
+**Likely out of scope:** voice cloning pipelines, real-time conversational TTS, defaulting to third-party cloud APIs for script text, HTML/LRC lyrics export workarounds.
 
-- New TTS engines (Piper, XTTS, cloud APIs)
-- Non-English languages (chunking, UI, voice catalog design)
-- Large UI redesigns
-- Hosted SaaS / multi-tenant infrastructure / Stripe entitlements
-- Tauri desktop shell or Expo player scaffolds (see docs — drafted, not current work). **Never add `apps/kheru-player` here** — Player lives in private [`iCTX0780/kheru-player`](https://github.com/iCTX0780/kheru-player).
-- Voice cloning for branded podcast hosts (not a near-term promise)
+## Collaborators
 
-**Likely out of scope:**
-
-- Voice cloning or training pipelines as a core feature
-- Real-time conversational TTS / OS-wide dictation
-- Features that require sending script text to third-party cloud APIs by default
-- Reviving HTML/LRC lyrics export workarounds (superseded by Kheru Player brief)
-
-Product direction: [docs/strategy-map.md](docs/strategy-map.md) · [docs/product-vision.md](docs/product-vision.md) · [docs/roadmap.md](docs/roadmap.md).
-
-If you are unsure, open a feature request — a short "is this in scope?" issue is fine.
-
-## Sharing this repo with collaborators
-
-See [docs/sharing.md](docs/sharing.md). Invite people to **`kheru` only** — never to `kheru-player` unless they are building Player.
+Invite people to **`kheru` only**. Do not invite free-studio collaborators to `kheru-player` or any private product-docs repo.
 
 ## Reporting security issues
 
@@ -169,12 +101,8 @@ Do not open public issues for security vulnerabilities. Email the maintainer pri
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the same license as the project. (Add a `LICENSE` file to the repo if one is not yet published — contributors should check the repository root before submitting.)
+By contributing, you agree that your contributions will be licensed under the same license as the project. (Check the repository root for a `LICENSE` file before submitting.)
 
 ## Recognition
 
-Contributors are credited in PR history. Significant features may be called out in release notes when the project publishes them.
-
----
-
-Questions? Open a [feature request](.github/ISSUE_TEMPLATE/feature_request.yml) with the **question** label or start a GitHub Discussion if the repo has it enabled.
+Contributors are credited in PR history.

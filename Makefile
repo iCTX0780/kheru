@@ -22,7 +22,7 @@ lint:
 typecheck:
 	$(WITH_NODE) pnpm --filter kheru exec tsc --noEmit
 
-# Free studio image (serves app; TTS runs in the browser). See docs/free-docker-split.md
+# Free studio image (serves app; TTS runs in the browser).
 docker-build:
 	docker build -t kheru:free .
 

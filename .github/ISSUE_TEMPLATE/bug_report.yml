@@ -25,7 +25,7 @@ body:
       label: Steps to reproduce
       description: Minimal steps to see the problem again.
       placeholder: |
-        1. Start with `make dev`
+        1. Start with `pnpm dev`
         2. Create a project with 3 paragraphs
         3. Click Generate all
     validations:

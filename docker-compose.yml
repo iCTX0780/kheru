@@ -1,5 +1,4 @@
-# Free Kheru studio (local smoke test for the public Docker image).
-# TTS still runs in the browser — this only serves the app.
+# Free Kheru studio — TTS runs in the browser; container only serves the app.
 
 services:
   kheru:

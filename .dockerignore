@@ -1,36 +1,33 @@
-# Build context for free studio image — keep the image lean and secret-free.
-# See docs/free-docker-split.md
+# Build context for free studio image — keep lean and secret-free.
 
 .git
 .github
 .cursor
 .claude
+.vscode
+.tanstack
 
-**/node_modules
-**/.output
-**/dist
-**/.venv
-**/venv
-**/__pycache__
-**/*.wav
-**/*.onnx
-**/*.onnx.json
-**/.env
-**/.env.*
-!**/.env.example
+node_modules
+.output
+dist
+.vinxi
+.nitro
 
-voices/
-kokoro-models/
-voice-bakeoff/
-legacy/
+.env
+.env.*
+!.env.example
 
-# Local studio data / caches (not part of free image)
-apps/kheru/data/
-apps/kheru/.vinxi/
+*.wav
+*.onnx
+*.onnx.json
 
-# Not required to compile the free studio
-docs/
-scripts/
-Makefile
-docker-compose.yml
+# Local runtime data / caches
+data/projects.json
+data/generations.json
+data/temp
+data/audio/*
+!data/audio/.gitkeep
+data/transformers-cache
+
 **/*.md
+!docs/client-tts.md

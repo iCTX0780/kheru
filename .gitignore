@@ -1,38 +1,23 @@
-# Monorepo
-node_modules/
-apps/web/dist/
-apps/web/.env.local
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+.env
+.env.local
+.nitro
+.tanstack
+.wrangler
+.output
+.vinxi
+__unconfig*
+todos.json
 
-# Voice models (fetch via download_voices.py)
-voices/
+# Editor / agent local
+.cursor/
+.claude/
+
+# Local audio / model caches (if any)
+*.wav
 *.onnx
 *.onnx.json
-
-# Backend
-apps/api/generated_audio/
-apps/api/temp/
-apps/api/speakers.json
-temp/
-
-# Python
-__pycache__/
-*.pyc
-.env
-venv/
-.venv/
-apps/api/venv/
-apps/api/.venv/
-
-# OS
-.DS_Store
-*.wav
-
-# Legacy MVP artifacts (kept locally in legacy/)
-legacy/*.wav
-
-# Voice bake-off artifacts
-voice-bakeoff/
-kokoro-models/
-
-# Editor / agent local plans (not for collaborators)
-.cursor/

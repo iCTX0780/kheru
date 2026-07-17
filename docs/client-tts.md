@@ -17,9 +17,7 @@ Kheru is a **browser-local** rehearsal studio. Kokoro runs in a Web Worker (WebG
 ## Development
 
 ```bash
-make dev
-# or
-cd apps/kheru && pnpm dev
+pnpm dev
 ```
 
 Open http://127.0.0.1:3000 — no env vars required.

@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/iCTX0780/kheru/blob/main/CONTRIBUTING.md
     about: Dev setup, PR process, and how we triage issues
   - name: Client TTS notes
-    url: https://github.com/iCTX0780/kheru/blob/main/apps/kheru/docs/client-tts.md
+    url: https://github.com/iCTX0780/kheru/blob/main/docs/client-tts.md
     about: Browser Kokoro, OPFS, and export details

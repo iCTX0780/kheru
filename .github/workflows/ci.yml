@@ -19,6 +19,6 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter kheru exec tsc --noEmit
-      - run: pnpm --filter kheru test
-      - run: pnpm --filter kheru build
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build

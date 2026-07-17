@@ -36,7 +36,7 @@ See [docs/client-tts.md](docs/client-tts.md).
 
 Match existing patterns (TypeScript, React 19, TanStack Start). Prefer extending `voice-catalog.ts`, `tts-prepare-text.ts`, and `src/lib/` helpers.
 
-**Never add a Player / Expo app here** — that lives in private [`iCTX0780/kheru-player`](https://github.com/iCTX0780/kheru-player).
+Keep this repository focused on the browser studio. Large out-of-tree products (native shells, separate apps) belong in their own repos — open an issue before scaffolding them here.
 
 ## License
 

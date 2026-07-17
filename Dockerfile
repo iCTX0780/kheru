@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# Free Kheru studio — serves the TanStack Start app (TTS runs in the browser).
+# Kheru studio — serves the TanStack Start app (TTS runs in the browser).
 
 ARG NODE_VERSION=22-bookworm-slim
 

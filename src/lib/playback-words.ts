@@ -107,7 +107,7 @@ function tokensMatch(candidate: string, target: string): boolean {
   return false
 }
 
-/** Map Gentle clip timings onto display-word indices in the script text. */
+/** Map alignment clip timings onto display-word indices in the script text. */
 export function alignTimingsToText(words: string[], timings: WordTiming[]): TextWordAlignment[] {
   if (words.length === 0 || timings.length === 0) return []
 
@@ -181,7 +181,7 @@ export interface PreparedWordHighlight {
   hasTimings: boolean
 }
 
-/** Precompute Gentle→script alignment once per paragraph; reuse during playback. */
+/** Precompute alignment→script alignment once per paragraph; reuse during playback. */
 export function prepareWordHighlight(
   text: string,
   timings: WordTiming[] | null | undefined
@@ -213,7 +213,7 @@ export function activeTextWordIndexFromPrepared(
 
   const last = aligned[aligned.length - 1]
 
-  // Gentle often stops before the clip ends — keep highlighting through the full text.
+  // alignment often stops before the clip ends — keep highlighting through the full text.
   if (localTime >= last.end) {
     return activeWordIndexForProgress(text, progress)
   }
@@ -243,7 +243,7 @@ export function activeTextWordIndexFromPrepared(
   return activeWordIndexForProgress(text, progress)
 }
 
-/** Active display-word index for highlighting, using Gentle timings when available. */
+/** Active display-word index for highlighting, using alignment timings when available. */
 export function activeTextWordIndex(
   text: string,
   localTime: number,

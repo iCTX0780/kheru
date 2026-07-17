@@ -1,11 +1,11 @@
-# Free Kheru studio — TTS runs in the browser; container only serves the app.
+# Kheru studio — TTS runs in the browser; container only serves the app.
 
 services:
   kheru:
     build:
       context: .
       dockerfile: Dockerfile
-    image: kheru:free
+    image: kheru:latest
     ports:
       - "3000:3000"
     environment:

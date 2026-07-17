@@ -12,8 +12,8 @@ body:
     id: problem
     attributes:
       label: Problem / user story
-      description: What rehearsal or workflow problem does this solve?
-      placeholder: As a podcaster rehearsing UK dialogue, I need British English voices so character accents match the script.
+      description: What problem does this solve?
+      placeholder: As a podcaster recording UK dialogue, I need British English voices so character accents match the script.
     validations:
       required: true
 

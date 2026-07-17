@@ -43,7 +43,7 @@ export interface Paragraph {
   speaker?: string
   audioUrl: string | null
   duration: number | null
-  /** Clip-relative word timings from Gentle alignment (when available). */
+  /** Clip-relative word timings from alignment when available. */
   wordTimings: WordTiming[] | null
   status: ParagraphStatus
   error?: string
@@ -89,7 +89,7 @@ export interface GenerationSession {
   completedIds: string[]
   startedAt: number | null
   estimatedTotalMs: number | null
-  /** Hybrid client TTS: synthesizing vs Gentle align step for current paragraph */
+  /** Client TTS: synthesizing vs align step for current paragraph */
   paragraphPhase: 'synthesizing' | 'aligning' | null
   cancelRequested: boolean
   failedId?: string

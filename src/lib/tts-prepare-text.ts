@@ -41,7 +41,7 @@ const AS_OVERRIDE_PATTERN = /\b(\S+)\s*\[as:\s*([^\]]+)\]/gi
 export interface PreparedTtsText {
   /** Script text with `[as: …]` hints removed for display. */
   display: string
-  /** Text passed to Kokoro and Gentle alignment. */
+  /** Text passed to Kokoro (and optional word-timing alignment). */
   spoken: string
 }
 

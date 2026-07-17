@@ -32,8 +32,8 @@ TTS still runs in **your browser**; the container only serves the app.
 
 ```bash
 # Equivalent one-off
-docker build -t kheru:free .
-docker run --rm -p 3000:3000 -e HOST=0.0.0.0 -e PORT=3000 kheru:free
+docker build -t kheru .
+docker run --rm -p 3000:3000 -e HOST=0.0.0.0 -e PORT=3000 kheru
 ```
 
 ## What it does

@@ -94,7 +94,7 @@ Open **Export** in the toolbar.
 - Prefer **Chrome / Edge** (best WebGPU support for faster synth).
 - Keep the tab open during long **Generate all** runs.
 - If audio disappears after a refresh, re-generate — OPFS usually restores clips when available.
-- This free build exports **WAV / ZIP** only (no subtitle export).
+- Export formats today: **WAV** (full mix) and **ZIP** (per paragraph).
 
 ---
 

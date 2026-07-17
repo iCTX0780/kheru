@@ -5,7 +5,7 @@ const LONG_TEXT =
   "It's layered, and it has to survive AI velocity. Automated gates first — lint, pre-commit hooks, Conventional Commits, unit-testable code, all enforced in CI. Then code review — I designed an AI-assisted review flow so even a high PR volume gets real scrutiny; I reviewed a hundred and forty-five PRs in six months. Then observability — Sentry with source maps, Dockerized builds with version metadata, so we catch what slips. And the human part — I set the standard, and I say no to scope creep, including AI-suggested work that doesn't serve the user story. The whole point is: speed shouldn't cost you quality. Steering that is the job."
 
 describe('alignTimingsToText', () => {
-  it('maps gentle timings onto later words in long text', () => {
+  it('maps alignment timings onto later words in long text', () => {
     const words = splitWords(LONG_TEXT)
     const timings = [
       { word: "it's", start: 0.39, end: 0.61 },
@@ -21,7 +21,7 @@ describe('alignTimingsToText', () => {
 })
 
 describe('activeTextWordIndex', () => {
-  it('continues through the full text after gentle timings end', () => {
+  it('continues through the full text after alignment timings end', () => {
     const words = splitWords(LONG_TEXT)
     const lastAlignedEnd = 29.28
     const speechDuration = 29.52

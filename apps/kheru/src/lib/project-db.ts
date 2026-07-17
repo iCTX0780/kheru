@@ -114,7 +114,12 @@ export async function setMetaValue(key: string, value: string): Promise<void> {
   await db.put('meta', { key, value })
 }
 
-export function createDefaultChapter(title = 'Chapter 1', voice = ''): ProjectChapter {
+export const DEFAULT_SCRIPT_CHAPTER_TITLE = 'Script'
+
+export function createDefaultChapter(
+  title = DEFAULT_SCRIPT_CHAPTER_TITLE,
+  voice = ''
+): ProjectChapter {
   return {
     id: crypto.randomUUID(),
     title,
@@ -139,13 +144,58 @@ export function createDefaultChapter(title = 'Chapter 1', voice = ''): ProjectCh
 }
 
 export function createDefaultProject(voice = '', title = 'Untitled project'): ProjectRecord {
-  const chapter = createDefaultChapter('Chapter 1', voice)
+  const chapter = createDefaultChapter(DEFAULT_SCRIPT_CHAPTER_TITLE, voice)
   return {
     id: crypto.randomUUID(),
     title,
     chapters: [chapter],
     activeChapterId: chapter.id,
     updatedAt: new Date().toISOString(),
+  }
+}
+
+/**
+ * Flatten multi-chapter projects into a single Script workspace.
+ * Preserves paragraph order across chapters; keeps the first chapter's mix metadata.
+ */
+export function flattenProjectToSingleChapter(project: ProjectRecord): {
+  project: ProjectRecord
+  changed: boolean
+} {
+  if (project.chapters.length <= 1) {
+    const only = project.chapters[0]
+    if (!only) return { project, changed: false }
+    if (only.title === DEFAULT_SCRIPT_CHAPTER_TITLE && project.activeChapterId === only.id) {
+      return { project, changed: false }
+    }
+    // Normalize sole chapter title / active id without merging
+    const normalized: ProjectRecord = {
+      ...project,
+      activeChapterId: only.id,
+      chapters: [{ ...only, title: DEFAULT_SCRIPT_CHAPTER_TITLE }],
+    }
+    const changed =
+      only.title !== DEFAULT_SCRIPT_CHAPTER_TITLE || project.activeChapterId !== only.id
+    return { project: normalized, changed }
+  }
+
+  const [first] = project.chapters
+  const paragraphs = project.chapters.flatMap((c) => c.paragraphs)
+  const merged: ProjectChapter = {
+    ...first,
+    title: DEFAULT_SCRIPT_CHAPTER_TITLE,
+    paragraphs,
+    // Drop stale full-mix — paragraph list changed across former chapters
+    chapter: { audioUrl: null, segments: [], status: 'idle' },
+  }
+
+  return {
+    project: {
+      ...project,
+      chapters: [merged],
+      activeChapterId: merged.id,
+    },
+    changed: true,
   }
 }
 
@@ -197,7 +247,7 @@ export async function migrateLocalStorageToIDB(defaultVoice = ''): Promise<Proje
     const state = parsed.state ?? (parsed as LegacyPersistedStudio)
     const project = createDefaultProject(defaultVoice, state.projectTitle ?? 'Untitled project')
     const chapter = activeChapter(project)!
-    chapter.title = state.chapterTitle ?? 'Chapter 1'
+    chapter.title = state.chapterTitle ?? DEFAULT_SCRIPT_CHAPTER_TITLE
     chapter.paragraphs = (state.paragraphs ?? chapter.paragraphs).map((p) => ({
       ...p,
       wordTimings: p.wordTimings ?? null,
@@ -216,15 +266,13 @@ export async function migrateLocalStorageToIDB(defaultVoice = ''): Promise<Proje
 }
 
 export function projectSummary(project: ProjectRecord) {
-  const chapter = activeChapter(project)
-  const paragraphs = chapter?.paragraphs ?? []
+  const paragraphs = project.chapters.flatMap((c) => c.paragraphs)
   const doneCount = paragraphs.filter((p) => p.status === 'done').length
   const voices = [...new Set(paragraphs.map((p) => p.voice).filter(Boolean))].slice(0, 5)
   return {
     id: project.id,
     title: project.title,
     updatedAt: project.updatedAt,
-    chapterCount: project.chapters.length,
     paragraphCount: paragraphs.length,
     doneCount,
     voices,

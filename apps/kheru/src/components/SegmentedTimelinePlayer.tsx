@@ -69,7 +69,6 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
   const setPlayback = useStudioStore((s) => s.setPlayback)
   const resetPlayback = useStudioStore((s) => s.resetPlayback)
   const setPreviewPlaybackRate = useStudioStore((s) => s.setPreviewPlaybackRate)
-  const studioPlayMode = useStudioStore((s) => s.studioPlayMode)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
   const setSelectedParagraphId = useStudioStore((s) => s.setSelectedParagraphId)
   const invalidateParagraphAudio = useStudioStore((s) => s.invalidateParagraphAudio)
@@ -655,16 +654,12 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
 
   const modeLabel =
     playback.mode === 'chapter'
-      ? 'Chapter'
+      ? 'Full mix'
       : playback.mode === 'sequence'
-        ? studioPlayMode === 'until-end'
-          ? 'Until end'
-          : 'Sequence'
+        ? 'Sequence'
         : playback.mode === 'paragraph'
           ? 'Selection'
-          : studioPlayMode === 'until-end'
-            ? 'Until end'
-            : 'Selection'
+          : 'Ready'
 
   return (
     <div className="border-t border-border bg-surface px-4 py-3 shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.35)] sm:px-6">
@@ -780,7 +775,7 @@ export function SegmentedTimelinePlayer({ onPlayAll }: { onPlayAll?: () => void 
         !chapter.audioUrl &&
         (playback.mode === 'chapter' || playback.mode === 'sequence') && (
         <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-          Audio may be out of date — re-generate chapter for the latest full mix.
+          Audio may be out of date — re-generate all for the latest full mix.
         </p>
       )}
     </div>

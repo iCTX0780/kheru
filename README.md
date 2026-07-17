@@ -4,7 +4,7 @@ Open-core multi-speaker TTS studio in the browser. Write a script, assign voices
 
 **Flagship use:** podcast and spoken-content production (educational explainers, chapter summaries, multi-host scripts). Same studio also works for dialogue and other scripted formats.
 
-**Client-only today** — no server TTS, no Docker, no API routes. Projects live in IndexedDB; audio persists in OPFS when available.
+**Runs entirely in your browser** — Kokoro TTS is local; projects live in IndexedDB; audio persists in OPFS when available. Optional Docker packaging serves the same local app (not a remote TTS service).
 
 > Monetization plan: free local studio core; paid Player / Cloud later. See [docs/commercial.md](docs/commercial.md).
 
@@ -39,9 +39,9 @@ First Kokoro synthesis downloads the model (~5–15 MB).
 | Step | In the app |
 |------|------------|
 | Write | Paragraph / segment blocks with voice + speed |
-| Generate | Per-segment or full chapter (episode) stitch |
+| Generate | Per-segment or full-mix stitch |
 | Review | Timeline playback, optional word highlights |
-| Export | WAV, SRT/VTT, ZIP (MP3 and `.kheru` playpack on the roadmap) |
+| Export | WAV, ZIP (MP3 and `.kheru` playpack on the roadmap) |
 
 ## Project layout
 
@@ -62,7 +62,7 @@ make build        # production build
 make test         # vitest
 make typecheck    # tsc --noEmit
 
-# Free studio in Docker (serves the app; TTS still runs in the browser)
+# Run the local studio in a container (TTS still runs in the browser)
 make docker-build
 make docker-run   # http://127.0.0.1:3000
 # or: docker compose up --build

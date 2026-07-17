@@ -20,8 +20,6 @@ import { DEFAULT_VOICE_ID, lengthScaleForSpeaker, voiceForSpeaker, VOICE_BY_ID }
 export type ParagraphStatus = 'idle' | 'generating' | 'done' | 'stale' | 'error'
 export type ChapterStatus = 'idle' | 'generating' | 'done' | 'stale' | 'error'
 export type PlaybackMode = 'paragraph' | 'chapter' | 'sequence' | null
-export type StudioPlayMode = 'selection' | 'until-end'
-
 export interface ParagraphGeneration {
   id: string
   createdAt: string
@@ -32,7 +30,7 @@ export interface ParagraphGeneration {
   audioUrl: string
   duration: number
   wordTimings: WordTiming[] | null
-  /** Stable ref for OPFS / server audio (e.g. runId or generation id). */
+  /** Stable ref for OPFS / clip audio (e.g. runId or generation id). */
   audioRef?: string
 }
 
@@ -78,7 +76,7 @@ export interface PlaybackState {
   sequenceParagraphIds: string[]
   sequenceIndex: number
   sequenceTimeOffset: number
-  /** Segments shown on timeline (chapter or built from paragraph clips) */
+  /** Segments shown on timeline (full mix or built from paragraph clips) */
   timelineSegments: PlaybackSegment[]
   /** Preview-only playback rate (does not affect TTS export) */
   previewPlaybackRate: number
@@ -115,7 +113,6 @@ export interface StudioStore {
   chapter: Chapter
   playback: PlaybackState
   selectedParagraphId: string | null
-  studioPlayMode: StudioPlayMode
   generationSession: GenerationSession
   projectId: string
   projectTitle: string
@@ -125,7 +122,6 @@ export interface StudioStore {
 
   setVoices: (voices: string[], defaultVoice?: string) => void
   setSelectedParagraphId: (id: string | null) => void
-  setStudioPlayMode: (mode: StudioPlayMode) => void
   setProjectId: (id: string) => void
   setProjectTitle: (title: string) => void
   setChapterTitle: (title: string) => void
@@ -296,17 +292,14 @@ export const useStudioStore = create<StudioStore>()((set) => ({
   chapter: { audioUrl: null, segments: [], status: 'idle' },
   playback: initialPlayback,
   selectedParagraphId: null,
-  studioPlayMode: 'until-end',
   generationSession: initialGenerationSession,
   projectId: '',
   projectTitle: 'Untitled project',
-  chapterTitle: 'Chapter 1',
+  chapterTitle: 'Script',
   chapters: [],
   activeChapterId: '',
 
   setSelectedParagraphId: (id) => set({ selectedParagraphId: id }),
-
-  setStudioPlayMode: (mode) => set({ studioPlayMode: mode }),
 
   setProjectId: (id) => set({ projectId: id }),
 

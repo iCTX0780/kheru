@@ -57,8 +57,7 @@ export const ProjectCard = memo(function ProjectCard({
           <Badge variant={status === 'ready' ? 'default' : 'secondary'}>{statusLabel}</Badge>
         </div>
         <CardDescription className="font-mono text-[0.65rem]">
-          {project.chapterCount} chapter{project.chapterCount === 1 ? '' : 's'} · {project.paragraphCount} ¶ ·{' '}
-          {new Date(project.updatedAt).toLocaleDateString()}
+          {project.paragraphCount} ¶ · {new Date(project.updatedAt).toLocaleDateString()}
         </CardDescription>
       </CardHeader>
       <CardContent className="relative">

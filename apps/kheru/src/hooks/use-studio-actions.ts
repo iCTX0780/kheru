@@ -117,7 +117,6 @@ export function useStudioActions() {
   const paragraphs = useStudioStore((s) => s.paragraphs)
   const chapter = useStudioStore((s) => s.chapter)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
-  const studioPlayMode = useStudioStore((s) => s.studioPlayMode)
   const setChapterGenerating = useStudioStore((s) => s.setChapterGenerating)
   const setChapterDone = useStudioStore((s) => s.setChapterDone)
   const setChapterError = useStudioStore((s) => s.setChapterError)
@@ -160,7 +159,7 @@ export function useStudioActions() {
   const handleGenerateChapter = useCallback(async () => {
     const state = useStudioStore.getState()
     if (state.generationSession.active || state.chapter.status === 'generating') {
-      toast.error('Finish chapter generation before starting another run')
+      toast.error('Finish generation before starting another run')
       return
     }
 
@@ -283,7 +282,7 @@ export function useStudioActions() {
   const handleGenerateSelection = useCallback(async () => {
     const state = useStudioStore.getState()
     if (state.generationSession.active || state.chapter.status === 'generating') {
-      toast.error('Finish chapter generation before generating a single paragraph')
+      toast.error('Finish generation before generating a single paragraph')
       return
     }
 
@@ -355,7 +354,7 @@ export function useStudioActions() {
     async (paragraphId: string, generationId: string) => {
       const state = useStudioStore.getState()
       if (state.generationSession.active || state.chapter.status === 'generating') {
-        toast.error('Finish chapter generation before switching takes')
+        toast.error('Finish generation before switching takes')
         return
       }
 
@@ -372,7 +371,7 @@ export function useStudioActions() {
     async (paragraphId: string, generationId: string) => {
       const state = useStudioStore.getState()
       if (state.generationSession.active || state.chapter.status === 'generating') {
-        toast.error('Finish chapter generation before deleting takes')
+        toast.error('Finish generation before deleting takes')
         return
       }
 
@@ -387,37 +386,15 @@ export function useStudioActions() {
   )
 
   const handlePlayParagraph = useCallback(
-    (id: string, modeOverride?: 'selection' | 'until-end') => {
+    (id: string) => {
       const state = useStudioStore.getState()
       if (state.generationSession.active || state.chapter.status === 'generating') {
-        toast.error('Finish chapter generation before playing')
+        toast.error('Finish generation before playing')
         return
       }
 
       const paragraph = paragraphs.find((p) => p.id === id)
       if (!paragraph?.audioUrl || paragraph.status !== 'done') return
-
-      const playMode = modeOverride ?? studioPlayMode
-      const playable = playableParagraphs(paragraphs)
-
-      if (playMode === 'until-end' && playable.length > 1) {
-        const index = playable.findIndex((p) => p.id === id)
-        const segments = buildSegmentsFromParagraphs(playable)
-        const segment = segments[index]
-        setPlayback({
-          mode: 'sequence',
-          playingParagraphId: null,
-          isPlaying: true,
-          currentTime: segment?.start ?? 0,
-          activeParagraphId: id,
-          activeWordIndex: null,
-          sequenceParagraphIds: playable.map((p) => p.id),
-          sequenceIndex: Math.max(index, 0),
-          sequenceTimeOffset: segment?.start ?? 0,
-          timelineSegments: segments,
-        })
-        return
-      }
 
       setPlayback({
         mode: 'paragraph',
@@ -432,7 +409,7 @@ export function useStudioActions() {
         timelineSegments: [],
       })
     },
-    [paragraphs, setPlayback, studioPlayMode]
+    [paragraphs, setPlayback]
   )
 
   const handlePlayGenerationTake = useCallback((paragraphId: string, generationId: string) => {
@@ -448,14 +425,14 @@ export function useStudioActions() {
       toast.error('Select a paragraph first')
       return
     }
-    handlePlayParagraph(selectedParagraphId, studioPlayMode)
-  }, [handlePlayParagraph, selectedParagraphId, studioPlayMode])
+    handlePlayParagraph(selectedParagraphId)
+  }, [handlePlayParagraph, selectedParagraphId])
 
   /** Bottom player: prefer stitched chapter mix when available. */
   const handlePlayAll = useCallback(() => {
     const state = useStudioStore.getState()
     if (state.generationSession.active || state.chapter.status === 'generating') {
-      toast.error('Finish chapter generation before playing')
+      toast.error('Finish generation before playing')
       return
     }
 
@@ -477,7 +454,7 @@ export function useStudioActions() {
 
     const playable = playableParagraphs(paragraphs)
     if (playable.length === 0) {
-      toast.error('Generate at least one paragraph, or generate chapter first')
+      toast.error('Generate at least one paragraph, or generate all first')
       return
     }
 

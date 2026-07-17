@@ -13,11 +13,11 @@ export async function getAudioDuration(url: string): Promise<number> {
   }
 }
 
-/** Resolve clip duration from server metadata, falling back to client decode. */
+/** Resolve clip duration from known metadata, falling back to client decode. */
 export async function resolveClipDuration(
   audioUrl: string,
-  serverDuration: number | null
+  knownDuration: number | null
 ): Promise<number> {
-  if (serverDuration != null && serverDuration > 0) return serverDuration
+  if (knownDuration != null && knownDuration > 0) return knownDuration
   return getAudioDuration(audioUrl)
 }

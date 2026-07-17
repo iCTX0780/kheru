@@ -6,29 +6,19 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ChevronDown, Download, FileAudio, FileText, FolderArchive } from 'lucide-react'
+import { ChevronDown, Download, FileAudio, FolderArchive } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   canExportFullMix,
   canExportParagraphs,
-  canExportSubtitles,
   exportFullMix,
   exportParagraphsZip,
-  exportSubtitles,
 } from '@/lib/export'
 import { useStudioStore } from '@/stores/studio'
 
-type ExportAction =
-  | 'full-mix-wav'
-  | 'paragraphs-zip'
-  | 'subtitles-srt'
-  | 'subtitles-vtt'
-  | 'subtitles-words-srt'
-  | 'subtitles-words-vtt'
+type ExportAction = 'full-mix-wav' | 'paragraphs-zip'
 
 export function ExportMenu() {
   const [busyAction, setBusyAction] = useState<ExportAction | null>(null)
@@ -40,8 +30,7 @@ export function ExportMenu() {
 
   const fullMixReady = canExportFullMix(paragraphs, chapter)
   const paragraphsReady = canExportParagraphs(paragraphs)
-  const subtitlesReady = canExportSubtitles(paragraphs, chapter)
-  const hasAnyExport = fullMixReady || paragraphsReady || subtitlesReady
+  const hasAnyExport = fullMixReady || paragraphsReady
 
   const runExport = useCallback(
     async (action: ExportAction, task: () => void | Promise<void>) => {
@@ -107,54 +96,6 @@ export function ExportMenu() {
           >
             {busyAction === 'paragraphs-zip' ? <Spinner /> : <FolderArchive />}
             Paragraph audio (ZIP)
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Subtitles</DropdownMenuLabel>
-          <DropdownMenuItem
-            disabled={!subtitlesReady || busyAction !== null}
-            onClick={() =>
-              void runExport('subtitles-srt', () =>
-                exportSubtitles(paragraphs, chapter, 'srt', 'paragraph', projectTitle, chapterTitle)
-              )
-            }
-          >
-            {busyAction === 'subtitles-srt' ? <Spinner /> : <FileText />}
-            Paragraphs (SRT)
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!subtitlesReady || busyAction !== null}
-            onClick={() =>
-              void runExport('subtitles-vtt', () =>
-                exportSubtitles(paragraphs, chapter, 'vtt', 'paragraph', projectTitle, chapterTitle)
-              )
-            }
-          >
-            {busyAction === 'subtitles-vtt' ? <Spinner /> : <FileText />}
-            Paragraphs (VTT)
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!subtitlesReady || busyAction !== null}
-            onClick={() =>
-              void runExport('subtitles-words-srt', () =>
-                exportSubtitles(paragraphs, chapter, 'srt', 'word', projectTitle, chapterTitle)
-              )
-            }
-          >
-            {busyAction === 'subtitles-words-srt' ? <Spinner /> : <FileText />}
-            Words (SRT)
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!subtitlesReady || busyAction !== null}
-            onClick={() =>
-              void runExport('subtitles-words-vtt', () =>
-                exportSubtitles(paragraphs, chapter, 'vtt', 'word', projectTitle, chapterTitle)
-              )
-            }
-          >
-            {busyAction === 'subtitles-words-vtt' ? <Spinner /> : <FileText />}
-            Words (VTT)
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

@@ -1,4 +1,4 @@
-/** Slugify project/chapter titles for safe download filenames. */
+/** Slugify project titles for safe download filenames. */
 export function slugifyExportName(...parts: string[]): string {
   const slug = parts
     .map((part) =>
@@ -15,6 +15,7 @@ export function slugifyExportName(...parts: string[]): string {
   return slug || 'untitled'
 }
 
-export function exportBaseName(projectTitle: string, chapterTitle: string): string {
-  return slugifyExportName(projectTitle, chapterTitle)
+/** Base filename for exports — project title only (flat script model). */
+export function exportBaseName(projectTitle: string, _ignoredChapterTitle?: string): string {
+  return slugifyExportName(projectTitle)
 }

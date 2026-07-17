@@ -173,7 +173,7 @@ export function GenerationProgressPanel() {
       ? `Downloading Kokoro model (${Math.round(clientTtsLoad.progress)}%)…`
       : 'Downloading Kokoro model…'
     : currentParagraph?.text.trim().slice(0, 64) ||
-      (isStitching ? 'Stitching chapter mix…' : 'Preparing…')
+      (isStitching ? 'Stitching full mix…' : 'Preparing…')
 
   const visible =
     generationSession.active ||
@@ -200,7 +200,7 @@ export function GenerationProgressPanel() {
 
   const progressSubtitle = (() => {
     if (hasError) return generationSession.error
-    if (isStitching) return 'Almost done — stitching chapter mix'
+    if (isStitching) return 'Almost done — stitching full mix'
     if (showChillCopy) {
       return `Sit back and relax — we're working through ${total} paragraphs.`
     }
@@ -237,7 +237,7 @@ export function GenerationProgressPanel() {
               {hasError
                 ? 'Generation stopped'
                 : isStitching
-                  ? 'Stitching chapter'
+                  ? 'Stitching'
                   : showComplete
                     ? 'Generation complete'
                     : isLargeBatch && generationSession.active

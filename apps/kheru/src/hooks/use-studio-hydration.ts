@@ -3,6 +3,7 @@ import { shallow } from 'zustand/shallow'
 import { useStudioStore, type StudioStore } from '@/stores/studio'
 import {
   createDefaultProject,
+  flattenProjectToSingleChapter,
   getMetaValue,
   getProjectFromIDB,
   migrateLocalStorageToIDB,
@@ -46,6 +47,12 @@ export function useStudioHydration(projectId?: string): boolean {
           project = createDefaultProject(DEFAULT_VOICE_ID)
           await saveProjectToIDB(project)
           await setMetaValue('lastActiveProjectId', project.id)
+        }
+
+        const flattened = flattenProjectToSingleChapter(project)
+        project = flattened.project
+        if (flattened.changed) {
+          await saveProjectToIDB(project)
         }
 
         if (cancelled) return

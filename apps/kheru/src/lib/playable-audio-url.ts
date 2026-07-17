@@ -12,7 +12,7 @@ export function shouldStreamPlayback(
   return false
 }
 
-/** Fetch server audio into a blob URL — only for short clips. */
+/** Fetch clip audio into a blob URL — only for short clips. */
 export async function toPlayableAudioUrl(
   url: string,
   options?: { signal?: AbortSignal }

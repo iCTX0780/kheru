@@ -18,10 +18,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ExportMenu } from '@/components/ExportMenu'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { useStudioStore, type StudioPlayMode } from '@/stores/studio'
+import { useStudioStore } from '@/stores/studio'
 import {
   FileUp,
   HelpCircle,
@@ -72,8 +71,6 @@ export function StudioToolbar({
   const generationLocked = useStudioStore(
     (s) => s.generationSession.active || s.chapter.status === 'generating'
   )
-  const studioPlayMode = useStudioStore((s) => s.studioPlayMode)
-  const setStudioPlayMode = useStudioStore((s) => s.setStudioPlayMode)
   const selectedParagraphId = useStudioStore((s) => s.selectedParagraphId)
 
   const disabled = !hydrated || isLoadingVoices
@@ -87,7 +84,7 @@ export function StudioToolbar({
             variant="ghost"
             size="icon-sm"
             onClick={onToggleLeft}
-            aria-label={leftCollapsed ? 'Show chapters panel' : 'Hide chapters panel'}
+            aria-label={leftCollapsed ? 'Show script panel' : 'Hide script panel'}
             aria-pressed={!leftCollapsed}
           >
             <PanelLeft />
@@ -116,26 +113,6 @@ export function StudioToolbar({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <ToggleGroup
-            value={[studioPlayMode]}
-            onValueChange={(value) => {
-              const next = (Array.isArray(value) ? value[0] : value) as StudioPlayMode | undefined
-              if (next) setStudioPlayMode(next)
-            }}
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-          >
-            <ToggleGroupItem value="selection" aria-label="Play selection only">
-              Selection
-            </ToggleGroupItem>
-            <ToggleGroupItem value="until-end" aria-label="Play until end of chapter">
-              Until end
-            </ToggleGroupItem>
-          </ToggleGroup>
-
-          <Separator orientation="vertical" className="mx-1 hidden h-6 sm:block" />
-
           <Button
             type="button"
             variant="secondary"

@@ -1,6 +1,6 @@
 # Client-side TTS
 
-Kheru is a **client-only** rehearsal studio. Kokoro runs in a browser Web Worker (WebGPU or WASM). There is no server TTS, Gentle alignment, or `/api/*` backend.
+Kheru is a **browser-local** rehearsal studio. Kokoro runs in a Web Worker (WebGPU or WASM). There is no remote TTS service — synthesis happens on the user’s machine.
 
 ## Architecture
 
@@ -11,7 +11,7 @@ Kheru is a **client-only** rehearsal studio. Kokoro runs in a browser Web Worker
 | Word highlights | Estimated via `playback-words.ts` |
 | Paragraph audio | `blob:` URLs + OPFS persistence |
 | Chapter stitch | Client `concatWavBlobs` |
-| Export | Client WAV, ZIP, SRT/VTT |
+| Export | Client WAV, ZIP |
 | Projects | IndexedDB (`project-db.ts`) |
 
 ## Development
@@ -34,7 +34,7 @@ Open `/kokoro-spike` to measure model load and generation times on your hardware
 
 ## OPFS
 
-When available, paragraph and chapter WAV blobs persist under `kheru-audio/{projectId}/` so audio can survive refresh. IndexedDB stores project metadata.
+When available, paragraph and full-mix WAV blobs persist under `kheru-audio/{projectId}/` so audio can survive refresh. IndexedDB stores project metadata.
 
 ## TTS text normalization
 

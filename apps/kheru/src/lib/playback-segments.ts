@@ -24,7 +24,7 @@ export function findSegmentRegionForTime(
   return null
 }
 
-/** Matches server concat gap in `server/tts/concat.ts`. */
+/** Gap between paragraph clips in the local full-mix stitch. */
 export const PARAGRAPH_GAP_SECONDS = 0.4
 
 export function buildSegmentsFromParagraphs(paragraphs: Paragraph[]): PlaybackSegment[] {

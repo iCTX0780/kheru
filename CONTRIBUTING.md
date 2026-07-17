@@ -151,7 +151,7 @@ flowchart LR
 - Non-English languages (chunking, UI, voice catalog design)
 - Large UI redesigns
 - Hosted SaaS / multi-tenant infrastructure / Stripe entitlements
-- Tauri desktop shell or Expo player scaffolds (see docs — drafted, not current work)
+- Tauri desktop shell or Expo player scaffolds (see docs — drafted, not current work). **Never add `apps/kheru-player` here** — Player lives in private [`iCTX0780/kheru-player`](https://github.com/iCTX0780/kheru-player).
 - Voice cloning for branded podcast hosts (not a near-term promise)
 
 **Likely out of scope:**

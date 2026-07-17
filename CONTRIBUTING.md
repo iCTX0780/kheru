@@ -4,7 +4,7 @@ Thank you for helping improve Kheru. This project turns scripts into multi-speak
 
 ## Before you start
 
-1. Read the [docs overview](docs/README.md) and [architecture guide](docs/architecture.md).
+1. Read the [strategy map](docs/strategy-map.md) (full product plan index) and [architecture guide](docs/architecture.md).
 2. Set up the dev environment (below).
 3. For non-trivial work, **open an issue first** — especially for new voices, locales, or TTS engines. That saves rework if the approach does not fit project direction.
 
@@ -19,28 +19,23 @@ make dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
+First Kokoro synthesis downloads the model in the browser (~5–15 MB).
+
 ### Useful commands
 
 | Command | Purpose |
 |---------|---------|
-| `make dev` | Dev server (hosted TTS) |
-| `make dev-gentle` | Dev server + Gentle for word alignment |
+| `make dev` | Dev server (studio UI; TTS runs in the browser) |
 | `make test` | Unit tests |
 | `make typecheck` | TypeScript check |
 | `make build` | Production build |
-
-### Client / hybrid TTS
-
-```bash
-# apps/kheru/.env.local
-VITE_CLIENT_TTS=1
-```
-
-See [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md).
+| `make docker-build` / `make docker-run` | Run the same studio in Docker |
 
 ### Environment
 
-Copy `apps/kheru/.env.example` to `apps/kheru/.env.local`. Do not commit secrets or local `.env` files.
+Copy `apps/kheru/.env.example` to `apps/kheru/.env.local` if you need local overrides. Kokoro runs in the browser — no TTS server env vars are required. Do not commit secrets or local `.env` files.
+
+See [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md).
 
 ## How to contribute
 
@@ -60,7 +55,7 @@ Typos, test gaps, clear bugs with reproduction steps — PRs welcome without a p
 - [ ] `make test` passes
 - [ ] `make typecheck` passes
 - [ ] Changes are scoped to the stated issue
-- [ ] New behavior has tests when practical (glossary, chunking, export, API contracts)
+- [ ] New behavior has tests when practical (glossary, chunking, export)
 - [ ] User-facing changes are noted in PR description (no need for a CHANGELOG unless asked)
 
 ### Code style
@@ -88,11 +83,10 @@ Include:
 
 - Steps to reproduce
 - Expected vs actual behavior
-- TTS mode (hosted / hybrid / offline)
-- Browser and OS (for client TTS or playback issues)
+- Browser and OS
 - Relevant logs or screenshots
 
-**Good bug:** "Hybrid mode: Generate on paragraph 3 returns 503 from `/api/align` when Gentle container is running — Docker Desktop 4.x, macOS."
+**Good bug:** "Generate all on a 12-paragraph script stalls after paragraph 8 in Chrome 138 on macOS — console shows OPFS write failure."
 
 **Weak bug:** "Generate doesn't work."
 
@@ -140,7 +134,7 @@ flowchart LR
 - Podcast / long-form episode quality (stitch, crossfade, export packs)
 - English speech quality (pronunciation, chunking, studio UX)
 - Kokoro voice curation, host presets, and previews
-- Offline / hybrid client TTS improvements
+- Browser-local TTS improvements
 - Export formats, playback sync, and `.kheru` playpack writer (when scheduled)
 - Documentation and tests
 - **New English dialects** when Kokoro (or a contributed engine) supports them
@@ -161,9 +155,13 @@ flowchart LR
 - Features that require sending script text to third-party cloud APIs by default
 - Reviving HTML/LRC lyrics export workarounds (superseded by Kheru Player brief)
 
-Product direction: [docs/product-vision.md](docs/product-vision.md) · [docs/roadmap.md](docs/roadmap.md).
+Product direction: [docs/strategy-map.md](docs/strategy-map.md) · [docs/product-vision.md](docs/product-vision.md) · [docs/roadmap.md](docs/roadmap.md).
 
 If you are unsure, open a feature request — a short "is this in scope?" issue is fine.
+
+## Sharing this repo with collaborators
+
+See [docs/sharing.md](docs/sharing.md). Invite people to **`kheru` only** — never to `kheru-player` unless they are building Player.
 
 ## Reporting security issues
 

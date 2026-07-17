@@ -1,6 +1,6 @@
 # Kheru
 
-Open-core multi-speaker TTS studio in the browser. Write a script, assign voices, generate with Kokoro offline, stitch an episode, and export audio plus captions.
+Open-core multi-speaker TTS studio in the browser. Write a script, assign voices, generate with Kokoro offline, stitch an episode, and export audio.
 
 **Flagship use:** podcast and spoken-content production (educational explainers, chapter summaries, multi-host scripts). Same studio also works for dialogue and other scripted formats.
 
@@ -12,10 +12,12 @@ Open-core multi-speaker TTS studio in the browser. Write a script, assign voices
 
 | Doc | Description |
 |-----|-------------|
-| [docs/README.md](docs/README.md) | Full doc index (product, roadmap, commercial) |
-| [docs/free-docker-split.md](docs/free-docker-split.md) | Free Docker image vs private Pro repos |
-| [docs/product-vision.md](docs/product-vision.md) | Positioning and jobs-to-be-done |
+| **[docs/strategy-map.md](docs/strategy-map.md)** | **Full product plan index** (start here for the big picture) |
+| [docs/sharing.md](docs/sharing.md) | Invite a collaborator / friend checklist |
+| [docs/README.md](docs/README.md) | Full doc index |
 | [docs/roadmap.md](docs/roadmap.md) | Now / next / later |
+| [docs/product-vision.md](docs/product-vision.md) | Positioning and jobs-to-be-done |
+| [docs/free-docker-split.md](docs/free-docker-split.md) | Free Docker image vs private Pro repos |
 | [docs/architecture.md](docs/architecture.md) | System design, how to extend |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup, PRs, issues |
 | [apps/kheru/docs/client-tts.md](apps/kheru/docs/client-tts.md) | Browser Kokoro, OPFS, export |

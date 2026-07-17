@@ -1,4 +1,7 @@
+# Local runtime data — do not commit personal projects or audio.
 audio/*
 !audio/.gitkeep
 temp/*
 transformers-cache/
+projects.json
+generations.json

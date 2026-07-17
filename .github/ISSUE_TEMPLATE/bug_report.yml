@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a bug. Please fill in as much as you can — TTS mode and reproduction steps matter a lot.
+        Thanks for reporting a bug. Please fill in as much as you can — browser, OS, and reproduction steps matter a lot.
 
         See [CONTRIBUTING.md](https://github.com/iCTX0780/kheru/blob/main/CONTRIBUTING.md) for triage expectations.
 
@@ -15,7 +15,7 @@ body:
     attributes:
       label: What happened?
       description: Clear description of the bug.
-      placeholder: Generate fails on the third paragraph with a 500 error from /api/generate.
+      placeholder: Generate all stalls after paragraph 8; browser console shows an OPFS error.
     validations:
       required: true
 
@@ -25,9 +25,9 @@ body:
       label: Steps to reproduce
       description: Minimal steps to see the problem again.
       placeholder: |
-        1. Start with `make dev-gentle`
+        1. Start with `make dev`
         2. Create a project with 3 paragraphs
-        3. Click Generate on paragraph 3
+        3. Click Generate all
     validations:
       required: true
 
@@ -38,25 +38,12 @@ body:
     validations:
       required: true
 
-  - type: dropdown
-    id: tts_mode
-    attributes:
-      label: TTS mode
-      description: Which synthesis path were you using?
-      options:
-        - Hosted (default, VITE_CLIENT_TTS=0)
-        - Hybrid (VITE_CLIENT_TTS=1 + Gentle)
-        - Offline (VITE_CLIENT_TTS=1, no Gentle)
-        - Not sure
-    validations:
-      required: true
-
   - type: input
     id: version
     attributes:
       label: Commit or version
       description: `git rev-parse --short HEAD` or release tag, if known.
-      placeholder: abc1234 or main @ 2026-07-11
+      placeholder: abc1234 or main @ 2026-07-17
 
   - type: input
     id: os
@@ -67,7 +54,7 @@ body:
   - type: input
     id: browser
     attributes:
-      label: Browser (if using client TTS or studio UI)
+      label: Browser
       placeholder: Chrome 138, Safari 18, Firefox 140
 
   - type: textarea
@@ -82,7 +69,7 @@ body:
     attributes:
       label: Checklist
       options:
-        - label: I searched existing issues for duplicates
-          required: true
-        - label: I can reproduce this on the latest `main` branch (or noted the version above)
-          required: true
+        - label: I searched existing issues first
+          required: false
+        - label: I can reproduce this on a clean project
+          required: false

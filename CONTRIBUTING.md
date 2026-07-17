@@ -38,6 +38,6 @@ Match existing patterns (TypeScript, React 19, TanStack Start). Prefer extending
 
 **Never add a Player / Expo app here** — that lives in private [`iCTX0780/kheru-player`](https://github.com/iCTX0780/kheru-player).
 
-## Security
+## License
 
-Do not open public issues for security vulnerabilities. Contact the maintainer privately.
+Licensed under the [Apache License 2.0](LICENSE). By contributing, you agree that your contributions will be licensed under the same terms.

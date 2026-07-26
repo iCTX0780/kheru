@@ -1,0 +1,13 @@
+{
+  "name": "Kheru Voice Studio",
+  "short_name": "Kheru",
+  "theme_color": "#7F3CF2",
+  "background_color": "#FFFFFF",
+  "display": "standalone",
+  "icons": [
+    { "src": "/icons/icon-192.png",     "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png",     "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { KheruWordmark } from '@/components/brand/KheruWordmark'
 import { ProjectCard } from '@/components/dashboard/ProjectCard'
 import { deleteProjectAudioOpfs, measureProjectOpfs } from '@/lib/client-tts/opfs'
 import { clearProjectAudio, keepLatestGenerationOnly } from '@/lib/project-cleanup'
@@ -150,8 +151,11 @@ export function ProjectDashboard() {
         <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-10">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="font-heading text-3xl font-semibold tracking-tight">
-                Kheru<span className="font-normal text-muted-foreground"> Studio</span>
+              <h1 className="flex items-center gap-2.5">
+                <KheruWordmark className="h-7 w-auto text-primary dark:text-white" />
+                <span className="font-heading text-3xl font-normal tracking-tight text-muted-foreground">
+                  Studio
+                </span>
               </h1>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
                 Open a script, assign speakers, and pick up where you left off.

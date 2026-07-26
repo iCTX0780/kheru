@@ -1,7 +1,7 @@
 import { startTransition, useCallback, useEffect, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { Plus } from 'lucide-react'
+import { Plus, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -25,6 +25,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ProjectCard } from '@/components/dashboard/ProjectCard'
+import { deleteProjectAudioOpfs, measureProjectOpfs } from '@/lib/client-tts/opfs'
+import { clearProjectAudio, keepLatestGenerationOnly } from '@/lib/project-cleanup'
+import { exportProjectAudioZip, NothingToExportError } from '@/lib/project-export'
+import { formatBytes } from '@/lib/storage-usage'
+import { useProjectAudioSizes } from '@/hooks/use-storage-usage'
 import { DEFAULT_VOICE_ID } from '@/lib/voice-catalog'
 import {
   createDefaultProject,
@@ -45,6 +50,11 @@ export function ProjectDashboard() {
   const [renameId, setRenameId] = useState<string | null>(null)
   const [renameTitle, setRenameTitle] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [clearAudioId, setClearAudioId] = useState<string | null>(null)
+  const [keepLatestId, setKeepLatestId] = useState<string | null>(null)
+
+  const projectIds = projects.map((p) => p.id)
+  const { sizes, measuring, supported: sizesSupported, remeasure } = useProjectAudioSizes(projectIds)
 
   const refreshProjects = useCallback(async () => {
     const idbProjects = await listProjectsFromIDB()
@@ -55,6 +65,10 @@ export function ProjectDashboard() {
     setProjects(summaries)
     setLoading(false)
   }, [])
+
+  const afterStorageChange = useCallback(async () => {
+    await Promise.all([refreshProjects(), remeasure()])
+  }, [refreshProjects, remeasure])
 
   useEffect(() => {
     void refreshProjects()
@@ -91,8 +105,42 @@ export function ProjectDashboard() {
     setDeleteId(null)
 
     setProjects((prev) => prev.filter((p) => p.id !== id))
-    await deleteProjectFromIDB(id)
+    await Promise.all([deleteProjectFromIDB(id), deleteProjectAudioOpfs(id)])
+    await remeasure()
     toast.success('Project deleted')
+  }
+
+  const handleClearAudio = async () => {
+    if (!clearAudioId) return
+    const id = clearAudioId
+    const freed = sizes[id] ?? 0
+    setClearAudioId(null)
+    await clearProjectAudio(id)
+    await afterStorageChange()
+    toast.success(freed > 0 ? `Audio cleared — freed ${formatBytes(freed)}` : 'Audio cleared')
+  }
+
+  const handleKeepLatest = async () => {
+    if (!keepLatestId) return
+    const id = keepLatestId
+    const before = await measureProjectOpfs(id)
+    setKeepLatestId(null)
+    await keepLatestGenerationOnly(id)
+    const after = await measureProjectOpfs(id)
+    await afterStorageChange()
+    const freed = Math.max(0, before - after)
+    toast.success(freed > 0 ? `Older takes removed — freed ${formatBytes(freed)}` : 'Kept the latest take')
+  }
+
+  const handleExport = async (id: string) => {
+    try {
+      await exportProjectAudioZip(id)
+      toast.success('Audio exported')
+    } catch (err) {
+      toast.error(
+        err instanceof NothingToExportError ? 'No generated audio to export' : 'Export failed'
+      )
+    }
   }
 
   return (
@@ -109,10 +157,21 @@ export function ProjectDashboard() {
                 Open a script, assign speakers, and pick up where you left off.
               </p>
             </div>
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              <Plus data-icon="inline-start" />
-              New project
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                nativeButton={false}
+                variant="outline"
+                size="icon"
+                aria-label="Settings"
+                render={<Link to="/settings" />}
+              >
+                <Settings />
+              </Button>
+              <Button type="button" onClick={() => setCreateOpen(true)}>
+                <Plus data-icon="inline-start" />
+                New project
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -143,11 +202,16 @@ export function ProjectDashboard() {
               <ProjectCard
                 key={project.id}
                 project={project}
+                audioBytes={sizes[project.id]}
+                sizeLoading={sizesSupported && measuring && sizes[project.id] === undefined}
                 onRename={(id) => {
                   setRenameId(id)
                   setRenameTitle(project.title)
                 }}
                 onDelete={setDeleteId}
+                onClearAudio={setClearAudioId}
+                onKeepLatest={setKeepLatestId}
+                onExport={(id) => void handleExport(id)}
               />
             ))}
           </div>
@@ -218,6 +282,41 @@ export function ProjectDashboard() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => void handleDelete()}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={clearAudioId !== null} onOpenChange={(open) => !open && setClearAudioId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear audio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Keeps your script and voice assignments. Removes every generated take
+              {clearAudioId && (sizes[clearAudioId] ?? 0) > 0
+                ? ` and frees ${formatBytes(sizes[clearAudioId] ?? 0)}`
+                : ''}
+              . You can regenerate anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleClearAudio()}>Clear audio</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={keepLatestId !== null} onOpenChange={(open) => !open && setKeepLatestId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Keep latest take only?</AlertDialogTitle>
+            <AlertDialogDescription>
+              For each paragraph, keeps the active take and deletes older ones. Your
+              script stays intact.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleKeepLatest()}>Keep latest</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

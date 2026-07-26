@@ -15,24 +15,39 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
 import { voiceDotClass } from '@/lib/voice-colors'
 import type { ProjectSummary } from '@/lib/project-db'
+import { formatBytes } from '@/lib/storage-usage'
 import { cn } from '@/lib/utils'
 import { MoreHorizontal } from 'lucide-react'
 
 interface ProjectCardProps {
   project: ProjectSummary
+  audioBytes?: number
+  sizeLoading?: boolean
   onDelete: (id: string) => void
   onRename: (id: string) => void
+  onClearAudio: (id: string) => void
+  onKeepLatest: (id: string) => void
+  onExport: (id: string) => void
 }
 
 export const ProjectCard = memo(function ProjectCard({
   project,
+  audioBytes,
+  sizeLoading = false,
   onDelete,
   onRename,
+  onClearAudio,
+  onKeepLatest,
+  onExport,
 }: ProjectCardProps) {
+  const hasAudio = (audioBytes ?? 0) > 0
   const status =
     project.paragraphCount === 0
       ? 'empty'
@@ -56,8 +71,17 @@ export const ProjectCard = memo(function ProjectCard({
           <CardTitle className="font-heading text-lg leading-tight">{project.title}</CardTitle>
           <Badge variant={status === 'ready' ? 'default' : 'secondary'}>{statusLabel}</Badge>
         </div>
-        <CardDescription className="font-mono text-[0.65rem]">
-          {project.paragraphCount} ¶ · {new Date(project.updatedAt).toLocaleDateString()}
+        <CardDescription className="flex items-center gap-1.5 font-mono text-[0.65rem]">
+          <span>
+            {project.paragraphCount} ¶ · {new Date(project.updatedAt).toLocaleDateString()}
+          </span>
+          {sizeLoading ? (
+            <Skeleton className="h-3 w-10 rounded" />
+          ) : hasAudio ? (
+            <Badge variant="secondary" className="font-mono">
+              {formatBytes(audioBytes ?? 0)}
+            </Badge>
+          ) : null}
         </CardDescription>
       </CardHeader>
       <CardContent className="relative">
@@ -91,8 +115,28 @@ export const ProjectCard = memo(function ProjectCard({
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => onRename(project.id)}>Rename</DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Storage</DropdownMenuLabel>
+              <DropdownMenuItem disabled={!hasAudio} onClick={() => onExport(project.id)}>
+                Export audio (ZIP)
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!hasAudio} onClick={() => onKeepLatest(project.id)}>
+                Keep latest take only
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={!hasAudio}
+                onClick={() => onClearAudio(project.id)}
+              >
+                Clear audio (keep script)
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
               <DropdownMenuItem variant="destructive" onClick={() => onDelete(project.id)}>
-                Delete
+                Delete project
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

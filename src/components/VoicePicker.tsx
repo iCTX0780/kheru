@@ -1,18 +1,22 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { Volume2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getVoicePreviewUrl } from '@/lib/client-tts/voice-preview'
+import { LOCALE_LABELS, type VoiceLocale } from '@/lib/voice-catalog'
 import type { VoiceInfo } from '@/lib/voices'
 
 const previewAudio = typeof Audio !== 'undefined' ? new Audio() : null
+const LOCALE_ORDER: VoiceLocale[] = ['en-us', 'en-gb']
 
 interface VoicePickerProps {
   voices: VoiceInfo[]
@@ -24,6 +28,22 @@ interface VoicePickerProps {
 export function VoicePicker({ voices, value, onValueChange, disabled }: VoicePickerProps) {
   const playingRef = useRef<string | null>(null)
   const selected = voices.find((v) => v.id === value)
+
+  const groups = useMemo(() => {
+    const byLocale = new Map<VoiceLocale, VoiceInfo[]>()
+    for (const voice of voices) {
+      const list = byLocale.get(voice.locale) ?? []
+      list.push(voice)
+      byLocale.set(voice.locale, list)
+    }
+    return LOCALE_ORDER.filter((locale) => (byLocale.get(locale)?.length ?? 0) > 0).map(
+      (locale) => ({
+        locale,
+        label: LOCALE_LABELS[locale],
+        voices: byLocale.get(locale) ?? [],
+      })
+    )
+  }, [voices])
 
   const playPreview = (voiceId: string) => {
     if (!previewAudio) return
@@ -70,10 +90,15 @@ export function VoicePicker({ voices, value, onValueChange, disabled }: VoicePic
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {voices.map((voice) => (
-            <SelectItem key={voice.id} value={voice.id}>
-              {voice.display_name}
-            </SelectItem>
+          {groups.map((group) => (
+            <SelectGroup key={group.locale}>
+              <SelectLabel>{group.label}</SelectLabel>
+              {group.voices.map((voice) => (
+                <SelectItem key={voice.id} value={voice.id}>
+                  {voice.display_name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           ))}
         </SelectContent>
       </Select>

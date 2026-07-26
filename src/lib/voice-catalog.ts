@@ -2,6 +2,7 @@ import { fromDisplaySpeed } from '@/lib/speed'
 
 export type VoiceEngine = 'kokoro'
 export type VoiceGender = 'male' | 'female'
+export type VoiceLocale = 'en-us' | 'en-gb'
 
 export interface Voice {
   id: string
@@ -9,58 +10,61 @@ export interface Voice {
   voiceKey: string
   displayName: string
   gender: VoiceGender
+  locale: VoiceLocale
   defaultLengthScale: number
 }
 
+function kokoroVoice(
+  voiceKey: string,
+  displayName: string,
+  gender: VoiceGender,
+  locale: VoiceLocale
+): Voice {
+  return {
+    id: `kokoro:${voiceKey}`,
+    engine: 'kokoro',
+    voiceKey,
+    displayName,
+    gender,
+    locale,
+    defaultLengthScale: 1.0,
+  }
+}
+
+/** All English voices supported by kokoro-js (`tts.list_voices()`). */
 export const CURATED_VOICES: Voice[] = [
-  {
-    id: 'kokoro:af_heart',
-    engine: 'kokoro',
-    voiceKey: 'af_heart',
-    displayName: 'Heart',
-    gender: 'female',
-    defaultLengthScale: 1.0,
-  },
-  {
-    id: 'kokoro:af_bella',
-    engine: 'kokoro',
-    voiceKey: 'af_bella',
-    displayName: 'Bella',
-    gender: 'female',
-    defaultLengthScale: 1.0,
-  },
-  {
-    id: 'kokoro:af_sarah',
-    engine: 'kokoro',
-    voiceKey: 'af_sarah',
-    displayName: 'Sarah',
-    gender: 'female',
-    defaultLengthScale: 1.0,
-  },
-  {
-    id: 'kokoro:am_michael',
-    engine: 'kokoro',
-    voiceKey: 'am_michael',
-    displayName: 'Michael',
-    gender: 'male',
-    defaultLengthScale: 1.0,
-  },
-  {
-    id: 'kokoro:am_fenrir',
-    engine: 'kokoro',
-    voiceKey: 'am_fenrir',
-    displayName: 'Fenrir',
-    gender: 'male',
-    defaultLengthScale: 1.0,
-  },
-  {
-    id: 'kokoro:am_adam',
-    engine: 'kokoro',
-    voiceKey: 'am_adam',
-    displayName: 'Adam',
-    gender: 'male',
-    defaultLengthScale: 1.0,
-  },
+  // American English — female
+  kokoroVoice('af_heart', 'Heart', 'female', 'en-us'),
+  kokoroVoice('af_bella', 'Bella', 'female', 'en-us'),
+  kokoroVoice('af_nicole', 'Nicole', 'female', 'en-us'),
+  kokoroVoice('af_sarah', 'Sarah', 'female', 'en-us'),
+  kokoroVoice('af_kore', 'Kore', 'female', 'en-us'),
+  kokoroVoice('af_aoede', 'Aoede', 'female', 'en-us'),
+  kokoroVoice('af_alloy', 'Alloy', 'female', 'en-us'),
+  kokoroVoice('af_nova', 'Nova', 'female', 'en-us'),
+  kokoroVoice('af_sky', 'Sky', 'female', 'en-us'),
+  kokoroVoice('af_jessica', 'Jessica', 'female', 'en-us'),
+  kokoroVoice('af_river', 'River', 'female', 'en-us'),
+  // American English — male
+  kokoroVoice('am_michael', 'Michael', 'male', 'en-us'),
+  kokoroVoice('am_fenrir', 'Fenrir', 'male', 'en-us'),
+  kokoroVoice('am_puck', 'Puck', 'male', 'en-us'),
+  kokoroVoice('am_adam', 'Adam', 'male', 'en-us'),
+  kokoroVoice('am_echo', 'Echo', 'male', 'en-us'),
+  kokoroVoice('am_eric', 'Eric', 'male', 'en-us'),
+  kokoroVoice('am_liam', 'Liam', 'male', 'en-us'),
+  kokoroVoice('am_onyx', 'Onyx', 'male', 'en-us'),
+  kokoroVoice('am_santa', 'Santa', 'male', 'en-us'),
+  // British English — female
+  kokoroVoice('bf_emma', 'Emma', 'female', 'en-gb'),
+  kokoroVoice('bf_isabella', 'Isabella', 'female', 'en-gb'),
+  kokoroVoice('bf_alice', 'Alice', 'female', 'en-gb'),
+  kokoroVoice('bf_lily', 'Lily', 'female', 'en-gb'),
+  // British English — male
+  kokoroVoice('bm_george', 'George', 'male', 'en-gb'),
+  kokoroVoice('bm_fable', 'Fable', 'male', 'en-gb'),
+  kokoroVoice('bm_daniel', 'Daniel', 'male', 'en-gb'),
+  kokoroVoice('bm_lewis', 'Lewis', 'male', 'en-gb'),
 ]
 
 export const DEFAULT_VOICE_ID = 'kokoro:am_michael'
@@ -131,6 +135,11 @@ export function lengthScaleForSpeaker(
 export const VOICE_BY_ID = Object.fromEntries(
   CURATED_VOICES.map((voice) => [voice.id, voice])
 ) as Record<string, Voice>
+
+export const LOCALE_LABELS: Record<VoiceLocale, string> = {
+  'en-us': 'American English',
+  'en-gb': 'British English',
+}
 
 export function voicePreviewFilename(voiceId: string): string {
   return `${voiceId.replace(':', '_')}.wav`

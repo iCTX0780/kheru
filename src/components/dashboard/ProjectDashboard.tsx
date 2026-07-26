@@ -24,7 +24,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { KheruWordmark } from '@/components/brand/KheruWordmark'
 import { ProjectCard } from '@/components/dashboard/ProjectCard'
 import { deleteProjectAudioOpfs, measureProjectOpfs } from '@/lib/client-tts/opfs'
 import { clearProjectAudio, keepLatestGenerationOnly } from '@/lib/project-cleanup'
@@ -151,10 +150,14 @@ export function ProjectDashboard() {
         <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-10">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="flex items-center gap-2.5">
-                <span className="inline-flex items-center rounded-xl bg-primary px-3 py-2 shadow-sm">
-                  <KheruWordmark className="h-5 w-auto text-primary-foreground" />
-                </span>
+              <h1 className="flex items-center gap-3">
+                <img
+                  src="/logos/kheru-icon-rounded.svg"
+                  alt="Kheru"
+                  width={36}
+                  height={36}
+                  className="size-9"
+                />
                 <span className="font-heading text-3xl font-normal tracking-tight text-muted-foreground">
                   Studio
                 </span>

@@ -1,8 +1,9 @@
 name: Release
 
-# Build and publish the Docker image when a GitHub release is published.
-# Requires two repo secrets: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
-# (a Docker Hub access token with Read & Write scope).
+# Build and publish the Docker image to GitHub Container Registry (GHCR)
+# when a GitHub release is published. Uses the built-in GITHUB_TOKEN — no
+# secrets to configure. The first push creates the package as private; flip it
+# to public under the repo's Packages settings if you want anonymous pulls.
 
 on:
   release:
@@ -28,20 +29,24 @@ jobs:
     name: Build & push image
     needs: verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Derive image tags & labels
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/kheru
+          images: ghcr.io/${{ github.repository }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}

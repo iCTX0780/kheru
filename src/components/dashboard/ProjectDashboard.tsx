@@ -152,7 +152,9 @@ export function ProjectDashboard() {
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="flex items-center gap-2.5">
-                <KheruWordmark className="h-7 w-auto text-primary dark:text-white" />
+                <span className="inline-flex items-center rounded-xl bg-primary px-3 py-2 shadow-sm">
+                  <KheruWordmark className="h-5 w-auto text-primary-foreground" />
+                </span>
                 <span className="font-heading text-3xl font-normal tracking-tight text-muted-foreground">
                   Studio
                 </span>

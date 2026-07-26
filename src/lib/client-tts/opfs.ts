@@ -168,3 +168,50 @@ export async function deleteParagraphAudioOpfs(projectId: string, paragraphId: s
     /* ignore */
   }
 }
+
+/** Recursively remove the entire `kheru-audio/{projectId}` tree (all paragraph
+ * takes, legacy flat files, and chapter/full-mix WAVs). */
+export async function deleteProjectAudioOpfs(projectId: string): Promise<void> {
+  if (!isOpfsAvailable()) return
+  try {
+    const root = await getRootDir()
+    const appDir = await root.getDirectoryHandle(OPFS_ROOT)
+    await appDir.removeEntry(projectId, { recursive: true })
+  } catch {
+    /* ignore (unsupported or already absent) */
+  }
+}
+
+/** Sum the byte size of every file under `kheru-audio/{projectId}`. Returns 0
+ * when OPFS is unavailable or the project has no audio. */
+export async function measureProjectOpfs(projectId: string): Promise<number> {
+  if (!isOpfsAvailable()) return 0
+  try {
+    const root = await getRootDir()
+    const appDir = await root.getDirectoryHandle(OPFS_ROOT)
+    const projectDir = await appDir.getDirectoryHandle(projectId)
+    return await measureDir(projectDir)
+  } catch {
+    return 0
+  }
+}
+
+async function measureDir(dir: FileSystemDirectoryHandle): Promise<number> {
+  let total = 0
+  // FileSystemDirectoryHandle is async-iterable over [name, handle] entries.
+  for await (const [, handle] of dir as unknown as AsyncIterable<
+    [string, FileSystemFileHandle | FileSystemDirectoryHandle]
+  >) {
+    if (handle.kind === 'file') {
+      try {
+        const file = await handle.getFile()
+        total += file.size
+      } catch {
+        /* skip unreadable entry */
+      }
+    } else {
+      total += await measureDir(handle)
+    }
+  }
+  return total
+}

@@ -11,7 +11,32 @@ import { revokeManagedBlobUrl } from '@/lib/client-tts/blob-registry'
 import { clientGenerateParagraph, clientStitchParagraphs } from '@/lib/client-tts/generate'
 import { estimateBulkGenerationMs, formatEta } from '@/lib/generation-estimate'
 import { buildSegmentsFromParagraphs, playableParagraphs, PARAGRAPH_GAP_SECONDS } from '@/lib/playback-segments'
+import { evaluateBudget, formatBytes, getStorageEstimate } from '@/lib/storage-usage'
+import { getStorageBudget } from '@/lib/storage-settings'
 import { useStudioStore, type Paragraph, type PlaybackSegment } from '@/stores/studio'
+
+/**
+ * Enforce the user's configured storage budget before a bulk run. Blocks when
+ * usage is over budget (returns false), warns but proceeds when near it. Never
+ * requests persistent storage — the app should not quietly hold onto disk.
+ */
+async function storageBudgetAllowsGeneration(): Promise<boolean> {
+  const [estimate, budget] = await Promise.all([getStorageEstimate(), getStorageBudget()])
+  const status = evaluateBudget(estimate, budget)
+  if (!status) return true // StorageManager unsupported — don't block.
+
+  if (status.level === 'over') {
+    toast.error(
+      `Storage limit reached (${formatBytes(status.usage)} of ${formatBytes(status.budget)}). ` +
+        'Clear audio from finished projects before generating.'
+    )
+    return false
+  }
+  if (status.level === 'warn') {
+    toast.warning('Storage is nearly full — clear audio from old projects if generation fails.')
+  }
+  return true
+}
 
 async function applyClientParagraphResult(
   paragraph: Paragraph,
@@ -168,6 +193,8 @@ export function useStudioActions() {
       toast.error('Add text to at least one paragraph')
       return
     }
+
+    if (!(await storageBudgetAllowsGeneration())) return
 
     setChapterGenerating()
     const estimatedTotalMs = estimateBulkGenerationMs(ready.map((p) => p.text.trim()))

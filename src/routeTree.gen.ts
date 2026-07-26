@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as KokoroSpikeRouteImport } from './routes/kokoro-spike'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudioProjectIdRouteImport } from './routes/studio.$projectId'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KokoroSpikeRoute = KokoroSpikeRouteImport.update({
   id: '/kokoro-spike',
   path: '/kokoro-spike',
@@ -32,35 +38,46 @@ const StudioProjectIdRoute = StudioProjectIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/kokoro-spike': typeof KokoroSpikeRoute
+  '/settings': typeof SettingsRoute
   '/studio/$projectId': typeof StudioProjectIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/kokoro-spike': typeof KokoroSpikeRoute
+  '/settings': typeof SettingsRoute
   '/studio/$projectId': typeof StudioProjectIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/kokoro-spike': typeof KokoroSpikeRoute
+  '/settings': typeof SettingsRoute
   '/studio/$projectId': typeof StudioProjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/kokoro-spike' | '/studio/$projectId'
+  fullPaths: '/' | '/kokoro-spike' | '/settings' | '/studio/$projectId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/kokoro-spike' | '/studio/$projectId'
-  id: '__root__' | '/' | '/kokoro-spike' | '/studio/$projectId'
+  to: '/' | '/kokoro-spike' | '/settings' | '/studio/$projectId'
+  id: '__root__' | '/' | '/kokoro-spike' | '/settings' | '/studio/$projectId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   KokoroSpikeRoute: typeof KokoroSpikeRoute
+  SettingsRoute: typeof SettingsRoute
   StudioProjectIdRoute: typeof StudioProjectIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/kokoro-spike': {
       id: '/kokoro-spike'
       path: '/kokoro-spike'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   KokoroSpikeRoute: KokoroSpikeRoute,
+  SettingsRoute: SettingsRoute,
   StudioProjectIdRoute: StudioProjectIdRoute,
 }
 export const routeTree = rootRouteImport

@@ -16,7 +16,7 @@ export function canExportParagraphs(paragraphs: Paragraph[]): boolean {
   return playableParagraphs(paragraphs).length > 0
 }
 
-async function fetchFullMixBuffer(paragraphs: Paragraph[], chapter: Chapter): Promise<ArrayBuffer> {
+export async function fetchFullMixBuffer(paragraphs: Paragraph[], chapter: Chapter): Promise<ArrayBuffer> {
   if (chapter.status === 'done' && chapter.audioUrl) {
     return fetchAudioBuffer(chapter.audioUrl)
   }

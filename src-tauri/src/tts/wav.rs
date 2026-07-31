@@ -4,6 +4,14 @@
 use hound::{SampleFormat, WavSpec, WavWriter};
 use std::io::Cursor;
 
+/// Convert model output (Float32 nominally in [-1.0, 1.0]) to PCM16 samples.
+pub fn f32_to_pcm16(samples: &[f32]) -> Vec<i16> {
+    samples
+        .iter()
+        .map(|&s| (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16)
+        .collect()
+}
+
 pub fn encode_pcm16_mono(samples: &[i16], sample_rate: u32) -> Result<Vec<u8>, hound::Error> {
     let spec = WavSpec {
         channels: 1,

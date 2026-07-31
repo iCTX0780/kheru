@@ -2,16 +2,26 @@
 //! worker so the app runs inside Tauri's webview on macOS (WKWebView cannot
 //! execute the transformers.js/ONNX-Runtime-Web stack).
 //!
-//! Phase 1 (this commit): stub — returns silence at Kokoro's 24kHz output rate
-//! so the invoke → Rust → audio-playback pipeline can be verified end-to-end
-//! before any of the real model plumbing lands.
+//! Phase 2 (this commit): real ONNX inference via `ort`, real voice bank
+//! loading, char-level HF-compatible tokenizer — but **hardcoded phoneme
+//! string** so the generated audio is a fixed word (currently "hello")
+//! regardless of the input text. Phase 3 replaces the hardcoded phonemes
+//! with espeak-ng output; phase 4 adds text normalization on top.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod kokoro;
+pub mod tokenize;
+pub mod voice;
 pub mod wav;
 
 const KOKORO_SAMPLE_RATE: u32 = 24_000;
+
+/// Placeholder — real phonemes will come from espeak-ng in phase 3.
+/// This is "hello" in IPA (approximately what `phonemize("hello", "en-us")`
+/// returns) with Kokoro's post-processing already applied.
+const PHASE2_PHONEMES: &str = "hˈɛloʊ";
 
 #[derive(Debug, Error)]
 pub enum TtsError {
@@ -19,6 +29,10 @@ pub enum TtsError {
     Wav(#[from] hound::Error),
     #[error("unknown voice: {0}")]
     UnknownVoice(String),
+    #[error("model load failed: {0}")]
+    Load(String),
+    #[error("ORT: {0}")]
+    Ort(#[from] ort::Error),
 }
 
 /// Serde-safe error wrapper for the IPC boundary.
@@ -38,7 +52,7 @@ impl From<TtsError> for TtsErrorSerde {
 
 #[derive(Debug, Deserialize)]
 pub struct GenerateArgs {
-    #[allow(dead_code)] // consumed starting in phase 2 (real ONNX inference)
+    #[allow(dead_code)] // consumed starting in phase 3 (real phonemization)
     pub text: String,
     pub voice: String,
     pub speed: f32,
@@ -58,31 +72,31 @@ pub struct GenerateResult {
 pub async fn generate_tts(args: GenerateArgs) -> Result<GenerateResult, TtsErrorSerde> {
     let start = std::time::Instant::now();
 
-    // Phase 1 stub: 1 second of silence at 24kHz mono. Proves the pipeline.
-    // Phase 2 will swap this for a real ort session over the Kokoro ONNX model.
-    let sample_count = (KOKORO_SAMPLE_RATE * (1.0 / args.speed.max(0.5).min(2.0)) as u32).max(1);
-    let samples = vec![0i16; sample_count as usize];
-
-    let bytes = wav::encode_pcm16_mono(&samples, KOKORO_SAMPLE_RATE).map_err(TtsError::from)?;
-
-    // Voice is validated only against a known allowlist for now — Phase 3 will
-    // load the real voice embedding from bundled resources.
     if !is_known_voice(&args.voice) {
         return Err(TtsError::UnknownVoice(args.voice).into());
     }
+    let clamped_speed = args.speed.clamp(0.5, 2.0);
+
+    // Tokenize the hardcoded phoneme string, load the voice's style slice,
+    // run inference, encode WAV.
+    let input_ids = tokenize::encode_phonemes(PHASE2_PHONEMES).map_err(TtsErrorSerde::from)?;
+    let style = voice::style_for(&args.voice, input_ids.len()).map_err(TtsErrorSerde::from)?;
+    let samples = kokoro::infer(&input_ids, &style, clamped_speed).map_err(TtsErrorSerde::from)?;
+
+    let pcm = wav::f32_to_pcm16(&samples);
+    let bytes = wav::encode_pcm16_mono(&pcm, KOKORO_SAMPLE_RATE)
+        .map_err(TtsError::from)
+        .map_err(TtsErrorSerde::from)?;
 
     let gen_ms = start.elapsed().as_millis() as u32;
     Ok(GenerateResult {
         bytes,
-        duration_seconds: sample_count as f32 / KOKORO_SAMPLE_RATE as f32,
+        duration_seconds: samples.len() as f32 / KOKORO_SAMPLE_RATE as f32,
         gen_ms,
     })
 }
 
 fn is_known_voice(voice: &str) -> bool {
-    // Mirrors the VOICES table in kokoro-js. Kept as a flat list here because
-    // the phase-1 stub doesn't care about attributes; phase 3 will replace this
-    // with the real voice registry driven by the bundled .bin files.
     matches!(
         voice,
         "af_heart"

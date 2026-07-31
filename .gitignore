@@ -26,3 +26,5 @@ todos.json
 /target/
 src-tauri/target/
 src-tauri/gen/
+src-tauri/resources/models/**
+!src-tauri/resources/models/.gitkeep

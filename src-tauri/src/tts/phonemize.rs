@@ -2,16 +2,26 @@
 //! (which kokoro-js uses) — which itself shells out to espeak-ng — so the
 //! phoneme output matches the browser build character-for-character.
 //!
-//! Requires `espeak-ng` on PATH at runtime. Dev: `brew install espeak-ng`
-//! (macOS) / `apt install espeak-ng` (Linux) / `choco install espeak` (Win).
-//! End-user bundling of the espeak-ng binary + data is handled by a later
-//! layer so packaged apps don't require the system install.
+//! In the packaged Tauri app, `lib.rs`'s setup() points these env vars at
+//! the bundled binary + data + dylib inside the app's Resources dir. In dev
+//! (`cargo test`, `tauri:dev` without prior `bundle:espeak`) the env vars
+//! are unset and we fall back to `espeak-ng` on PATH — `brew install
+//! espeak-ng` covers macOS dev.
 
 use fancy_regex::Regex;
 use once_cell::sync::Lazy;
+use std::path::PathBuf;
 use std::process::Command;
 
 use super::TtsError;
+
+/// If the app was launched via Tauri with a bundled espeak-ng, `lib.rs`'s
+/// setup() populates these env vars with paths inside the resource dir. In
+/// dev / cargo test we fall back to `espeak-ng` on PATH and let it pick up
+/// its data via its own compiled-in search path.
+const ENV_BIN: &str = "KHERU_ESPEAK_BIN";
+const ENV_DATA: &str = "KHERU_ESPEAK_DATA";
+const ENV_DYLD: &str = "KHERU_ESPEAK_DYLD";
 
 /// Kokoro post-processing pass, ported verbatim from kokoro-js's `phonemize`
 /// function (after the espeak-ng call, before tokenization). Kokoro's regexes
@@ -36,12 +46,36 @@ pub fn voice_to_espeak_lang(voice_id: &str) -> &'static str {
     }
 }
 
+/// Resolve which espeak-ng binary to invoke. Prefers the bundled one when
+/// running inside the packaged Tauri app; falls back to `espeak-ng` on PATH
+/// for dev / `cargo test`.
+fn espeak_binary() -> PathBuf {
+    if let Ok(bin) = std::env::var(ENV_BIN) {
+        return PathBuf::from(bin);
+    }
+    PathBuf::from("espeak-ng")
+}
+
 /// Turn arbitrary text into a Kokoro-compatible phoneme string.
 pub fn phonemize(text: &str, voice_id: &str) -> Result<String, TtsError> {
     let lang = voice_to_espeak_lang(voice_id);
 
-    let output = Command::new("espeak-ng")
-        .args(["-q", "--ipa=3", "-v", lang, text])
+    let mut cmd = Command::new(espeak_binary());
+    cmd.args(["-q", "--ipa=3", "-v", lang, text]);
+
+    // When we're pointed at a bundled espeak-ng, it needs to find its data
+    // dir + shared library. Set both env vars for the child process only.
+    if let Ok(data) = std::env::var(ENV_DATA) {
+        cmd.env("ESPEAK_DATA_PATH", data);
+    }
+    if let Ok(dyld) = std::env::var(ENV_DYLD) {
+        #[cfg(target_os = "macos")]
+        cmd.env("DYLD_LIBRARY_PATH", dyld);
+        #[cfg(target_os = "linux")]
+        cmd.env("LD_LIBRARY_PATH", dyld);
+    }
+
+    let output = cmd
         .output()
         .map_err(|e| TtsError::Load(format!("spawn espeak-ng: {e}")))?;
 

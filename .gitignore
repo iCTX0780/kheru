@@ -28,3 +28,4 @@ src-tauri/target/
 src-tauri/gen/
 src-tauri/resources/models/**
 !src-tauri/resources/models/.gitkeep
+src-tauri/resources/espeak-ng/**

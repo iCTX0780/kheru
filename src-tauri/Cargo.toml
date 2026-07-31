@@ -1,0 +1,19 @@
+[package]
+name = "kheru"
+version = "0.1.0"
+description = "Kheru Voice Studio — local multi-speaker TTS"
+authors = ["Kheru"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "kheru_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -21,3 +21,8 @@ todos.json
 *.wav
 *.onnx
 *.onnx.json
+
+# Tauri
+/target/
+src-tauri/target/
+src-tauri/gen/

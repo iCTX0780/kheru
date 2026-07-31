@@ -4,6 +4,17 @@
   "description": "Default capabilities for the Kheru main window.",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "dialog:default",
+    "fs:default",
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DOCUMENT/**" }
+      ]
+    }
   ]
 }

@@ -41,6 +41,8 @@
     "@huggingface/transformers": "^3.8.1",
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-dialog": "^2.0.1",
+    "@tauri-apps/plugin-fs": "^2.0.2",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-query-devtools": "^5.101.2",

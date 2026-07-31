@@ -1,5 +1,6 @@
 import { playableParagraphs, PARAGRAPH_GAP_SECONDS } from '@/lib/playback-segments'
-import { downloadBlob, fetchAudioBuffer } from '@/lib/export-download'
+import { fetchAudioBuffer } from '@/lib/export-download'
+import { saveBlob, WAV_FILTERS, ZIP_FILTERS } from '@/lib/save-file'
 import { exportBaseName } from '@/lib/export-filename'
 import { buildZip } from '@/lib/export-zip'
 import { concatWavBlobs } from '@/lib/client-tts/concat-blobs'
@@ -46,7 +47,7 @@ async function exportFullMixClient(
 ): Promise<void> {
   const base = exportBaseName(projectTitle, chapterTitle)
   const buffer = await fetchFullMixBuffer(paragraphs, chapter)
-  downloadBlob(new Blob([buffer], { type: 'audio/wav' }), `${base}.wav`)
+  await saveBlob(new Blob([buffer], { type: 'audio/wav' }), `${base}.wav`, WAV_FILTERS)
 }
 
 export async function exportFullMix(
@@ -87,5 +88,9 @@ export async function exportParagraphsZip(
   }
 
   const zipped = buildZip(files)
-  downloadBlob(new Blob([new Uint8Array(zipped)], { type: 'application/zip' }), `${base}-paragraphs.zip`)
+  await saveBlob(
+    new Blob([new Uint8Array(zipped)], { type: 'application/zip' }),
+    `${base}-paragraphs.zip`,
+    ZIP_FILTERS
+  )
 }

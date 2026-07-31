@@ -2,26 +2,20 @@
 //! worker so the app runs inside Tauri's webview on macOS (WKWebView cannot
 //! execute the transformers.js/ONNX-Runtime-Web stack).
 //!
-//! Phase 2 (this commit): real ONNX inference via `ort`, real voice bank
-//! loading, char-level HF-compatible tokenizer — but **hardcoded phoneme
-//! string** so the generated audio is a fixed word (currently "hello")
-//! regardless of the input text. Phase 3 replaces the hardcoded phonemes
-//! with espeak-ng output; phase 4 adds text normalization on top.
+//! Phase 3 (this commit): real phonemization via espeak-ng — the app now
+//! speaks the actual input text. Phase 4 will add kokoro-js's pre-espeak text
+//! normalization (numbers, currency, dates, abbreviations, contractions).
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod kokoro;
+pub mod phonemize;
 pub mod tokenize;
 pub mod voice;
 pub mod wav;
 
 const KOKORO_SAMPLE_RATE: u32 = 24_000;
-
-/// Placeholder — real phonemes will come from espeak-ng in phase 3.
-/// This is "hello" in IPA (approximately what `phonemize("hello", "en-us")`
-/// returns) with Kokoro's post-processing already applied.
-const PHASE2_PHONEMES: &str = "hˈɛloʊ";
 
 #[derive(Debug, Error)]
 pub enum TtsError {
@@ -52,7 +46,6 @@ impl From<TtsError> for TtsErrorSerde {
 
 #[derive(Debug, Deserialize)]
 pub struct GenerateArgs {
-    #[allow(dead_code)] // consumed starting in phase 3 (real phonemization)
     pub text: String,
     pub voice: String,
     pub speed: f32,
@@ -77,9 +70,9 @@ pub async fn generate_tts(args: GenerateArgs) -> Result<GenerateResult, TtsError
     }
     let clamped_speed = args.speed.clamp(0.5, 2.0);
 
-    // Tokenize the hardcoded phoneme string, load the voice's style slice,
-    // run inference, encode WAV.
-    let input_ids = tokenize::encode_phonemes(PHASE2_PHONEMES).map_err(TtsErrorSerde::from)?;
+    // Phonemize → tokenize → load voice style → infer → encode WAV.
+    let phonemes = phonemize::phonemize(&args.text, &args.voice).map_err(TtsErrorSerde::from)?;
+    let input_ids = tokenize::encode_phonemes(&phonemes).map_err(TtsErrorSerde::from)?;
     let style = voice::style_for(&args.voice, input_ids.len()).map_err(TtsErrorSerde::from)?;
     let samples = kokoro::infer(&input_ids, &style, clamped_speed).map_err(TtsErrorSerde::from)?;
 

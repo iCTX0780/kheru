@@ -23,7 +23,9 @@
     "lint": "tsc --noEmit",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "compile:icon": "node scripts/compile-icon.mjs",
+    "patch:app-plist": "node scripts/patch-app-plist.mjs",
+    "tauri:build": "pnpm compile:icon && tauri build && pnpm patch:app-plist"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

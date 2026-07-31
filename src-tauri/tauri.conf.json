@@ -39,7 +39,11 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg", "msi", "nsis", "appimage", "deb"],
-    "resources": ["resources/models/**/*", "resources/espeak-ng/**/*"],
+    "resources": [
+      "resources/models/**/*",
+      "resources/espeak-ng/**/*",
+      "Assets.car"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

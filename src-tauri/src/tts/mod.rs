@@ -2,14 +2,16 @@
 //! worker so the app runs inside Tauri's webview on macOS (WKWebView cannot
 //! execute the transformers.js/ONNX-Runtime-Web stack).
 //!
-//! Phase 3 (this commit): real phonemization via espeak-ng — the app now
-//! speaks the actual input text. Phase 4 will add kokoro-js's pre-espeak text
-//! normalization (numbers, currency, dates, abbreviations, contractions).
+//! Phase 4 (this commit): text normalization ported from kokoro-js — numbers,
+//! currency, dates, decimals, abbreviations, contractions get expanded before
+//! espeak-ng phonemizes them, matching the browser build's speech output for
+//! non-plain text.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod kokoro;
+pub mod normalize;
 pub mod phonemize;
 pub mod tokenize;
 pub mod voice;
@@ -70,8 +72,9 @@ pub async fn generate_tts(args: GenerateArgs) -> Result<GenerateResult, TtsError
     }
     let clamped_speed = args.speed.clamp(0.5, 2.0);
 
-    // Phonemize → tokenize → load voice style → infer → encode WAV.
-    let phonemes = phonemize::phonemize(&args.text, &args.voice).map_err(TtsErrorSerde::from)?;
+    // Normalize → phonemize → tokenize → load voice style → infer → encode WAV.
+    let normalized = normalize::normalize(&args.text);
+    let phonemes = phonemize::phonemize(&normalized, &args.voice).map_err(TtsErrorSerde::from)?;
     let input_ids = tokenize::encode_phonemes(&phonemes).map_err(TtsErrorSerde::from)?;
     let style = voice::style_for(&args.voice, input_ids.len()).map_err(TtsErrorSerde::from)?;
     let samples = kokoro::infer(&input_ids, &style, clamped_speed).map_err(TtsErrorSerde::from)?;

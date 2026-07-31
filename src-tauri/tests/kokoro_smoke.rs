@@ -4,7 +4,7 @@
 //!
 //! Run with: `cargo test --manifest-path src-tauri/Cargo.toml --test kokoro_smoke -- --nocapture`
 
-use kheru_lib::tts::{kokoro, phonemize, tokenize, voice, wav};
+use kheru_lib::tts::{kokoro, normalize, phonemize, tokenize, voice, wav};
 use std::fs;
 
 const SAMPLE_RATE: u32 = 24_000;
@@ -46,4 +46,28 @@ fn hello_world_af_heart_produces_audible_wav() {
     assert!(samples.len() > 1000, "sample count too small");
     assert!(non_zero > 100, "audio is silent");
     assert!(peak > 0.01, "audio peak too low");
+}
+
+#[test]
+fn normalize_cases() {
+    // Ported behavior from kokoro-js's `normalize` (the `m` async fn in
+    // node_modules/kokoro-js/dist/kokoro.js).
+    let cases: &[(&str, &str)] = &[
+        ("Dr. Smith", "Doctor Smith"),
+        ("It's 1990", "It's 19 90"),
+        ("It's 1900s", "It's 19 hundreds"),
+        ("1,000", "1000"),
+        ("$50", "50 dollars"),
+        ("$1", "1 dollar"),
+        ("$1.50", "1 dollar and 50 cents"),
+        ("3.14", "3 point 1 4"),
+        ("9:30", "9 30"),
+        ("9:00", "9 o'clock"),
+        ("9:05", "9 oh 5"),
+    ];
+
+    for (input, expected) in cases {
+        let got = normalize::normalize(input);
+        assert_eq!(&got, expected, "normalize({input:?}) → {got:?}, want {expected:?}");
+    }
 }

@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ChevronDown, Download, FileAudio, FolderArchive } from 'lucide-react'
+import { ChevronDown, Download, FileAudio, FolderArchive, Package } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   canExportFullMix,
@@ -16,9 +16,10 @@ import {
   exportFullMix,
   exportParagraphsZip,
 } from '@/lib/export'
+import { canExportPlaypack, exportPlaypack } from '@/lib/export-playpack'
 import { useStudioStore } from '@/stores/studio'
 
-type ExportAction = 'full-mix-wav' | 'paragraphs-zip'
+type ExportAction = 'full-mix-wav' | 'paragraphs-zip' | 'playpack-kheru'
 
 export function ExportMenu() {
   const [busyAction, setBusyAction] = useState<ExportAction | null>(null)
@@ -30,7 +31,8 @@ export function ExportMenu() {
 
   const fullMixReady = canExportFullMix(paragraphs, chapter)
   const paragraphsReady = canExportParagraphs(paragraphs)
-  const hasAnyExport = fullMixReady || paragraphsReady
+  const playpackReady = canExportPlaypack(paragraphs, chapter)
+  const hasAnyExport = fullMixReady || paragraphsReady || playpackReady
 
   const runExport = useCallback(
     async (action: ExportAction, task: () => void | Promise<void>) => {
@@ -96,6 +98,17 @@ export function ExportMenu() {
           >
             {busyAction === 'paragraphs-zip' ? <Spinner /> : <FolderArchive />}
             Paragraph audio (ZIP)
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!playpackReady || busyAction !== null}
+            onClick={() =>
+              void runExport('playpack-kheru', () =>
+                exportPlaypack(paragraphs, chapter, projectTitle, chapterTitle)
+              )
+            }
+          >
+            {busyAction === 'playpack-kheru' ? <Spinner /> : <Package />}
+            Playpack (.kheru)
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

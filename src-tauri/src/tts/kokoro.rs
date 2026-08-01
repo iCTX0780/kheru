@@ -57,6 +57,17 @@ fn build_session(ep: ActiveExecutionProvider) -> Result<Session, TtsError> {
     let path = model_dir().join(MODEL_FILE);
     let builder = Session::builder()?;
 
+    // Verbose partition logging: ORT prints which nodes each EP claimed vs.
+    // dropped to CPU. Only visible in the terminal running `tauri:dev`.
+    // Gated on KHERU_ORT_VERBOSE=1 so packaged builds stay quiet.
+    let builder = if std::env::var("KHERU_ORT_VERBOSE").is_ok() {
+        builder
+            .with_log_level(ort::logging::LogLevel::Verbose)
+            .map_err(|e| TtsError::Load(format!("set log level: {e}")))?
+    } else {
+        builder
+    };
+
     let builder = match ep {
         ActiveExecutionProvider::Cpu => builder,
         ActiveExecutionProvider::CoreMl => attach_coreml(builder)?,
@@ -73,15 +84,30 @@ fn build_session(ep: ActiveExecutionProvider) -> Result<Session, TtsError> {
 fn attach_coreml(builder: ort::session::builder::SessionBuilder)
     -> Result<ort::session::builder::SessionBuilder, TtsError>
 {
+    use ort::ep::coreml::{ComputeUnits, ModelFormat, SpecializationStrategy};
     use ort::ep::CoreML;
-    // `.error_on_failure()` flips the default of `fail_silently` — without it,
-    // if CoreML registration fails at commit time, ORT quietly falls back to
-    // CPU and `commit_from_file` still returns Ok. That means our fallback
-    // arm never fires and we'd tell the UI "GPU active" while actually
-    // running on CPU. Opt in to loud failures so `ensure_session` can catch
-    // them and record the true effective EP in `LoadedSession.ep`.
+
+    // MLProgram (CoreML 5+, macOS 12+) has broader op coverage than the
+    // default NeuralNetwork format — the difference matters for Kokoro,
+    // which is RNN/transformer-heavy. Without this, ORT's CoreML EP claims
+    // only a small subgraph and the rest falls back to CPU, so ANE/GPU
+    // utilization stays near zero (visible in macmon as CPU-dominant).
+    //
+    // FastPrediction trades specialization time (first inference) for
+    // lower per-call latency after warm-up.
+    //
+    // `.error_on_failure()` flips the default of `fail_silently` — without
+    // it, EP registration errors are swallowed and `commit_from_file`
+    // returns Ok with CPU, masking whether CoreML was actually attached.
+    let ep = CoreML::default()
+        .with_model_format(ModelFormat::MLProgram)
+        .with_compute_units(ComputeUnits::All)
+        .with_specialization_strategy(SpecializationStrategy::FastPrediction)
+        .with_static_input_shapes(false)
+        .build()
+        .error_on_failure();
     builder
-        .with_execution_providers([CoreML::default().build().error_on_failure()])
+        .with_execution_providers([ep])
         .map_err(|e| TtsError::Load(format!("attach CoreML EP: {e}")))
 }
 

@@ -46,6 +46,13 @@ pub fn reset_session() {
     }
 }
 
+/// The EP that the currently-loaded session was built with, or `None` if no
+/// session has been built yet. Used by `backend::capabilities` to report the
+/// *actual* backend to the UI instead of just what was requested.
+pub fn active_ep() -> Option<ActiveExecutionProvider> {
+    slot().lock().ok().and_then(|g| g.as_ref().map(|s| s.ep))
+}
+
 fn build_session(ep: ActiveExecutionProvider) -> Result<Session, TtsError> {
     let path = model_dir().join(MODEL_FILE);
     let builder = Session::builder()?;
@@ -67,12 +74,14 @@ fn attach_coreml(builder: ort::session::builder::SessionBuilder)
     -> Result<ort::session::builder::SessionBuilder, TtsError>
 {
     use ort::ep::CoreML;
-    // `with_execution_providers` takes `mut self` (ownership) and returns
-    // `BuilderResult` (Result<SessionBuilder>). EP construction errors show
-    // up here; unavailability at *runtime* comes out of the later
-    // `commit_from_file` and we degrade to CPU there (see `ensure_session`).
+    // `.error_on_failure()` flips the default of `fail_silently` — without it,
+    // if CoreML registration fails at commit time, ORT quietly falls back to
+    // CPU and `commit_from_file` still returns Ok. That means our fallback
+    // arm never fires and we'd tell the UI "GPU active" while actually
+    // running on CPU. Opt in to loud failures so `ensure_session` can catch
+    // them and record the true effective EP in `LoadedSession.ep`.
     builder
-        .with_execution_providers([CoreML::default().build()])
+        .with_execution_providers([CoreML::default().build().error_on_failure()])
         .map_err(|e| TtsError::Load(format!("attach CoreML EP: {e}")))
 }
 
@@ -98,7 +107,10 @@ fn ensure_session() -> Result<&'static Mutex<Option<LoadedSession>>, TtsError> {
     }
     // Either no session yet, or EP changed since last load — (re)build.
     let session = match build_session(target) {
-        Ok(s) => LoadedSession { session: s, ep: target },
+        Ok(s) => {
+            eprintln!("[tts] session built with EP={}", target.label());
+            LoadedSession { session: s, ep: target }
+        }
         Err(err) if matches!(target, ActiveExecutionProvider::CoreMl) => {
             // GPU EP failed to attach at commit time; degrade gracefully to
             // CPU so the app still generates.

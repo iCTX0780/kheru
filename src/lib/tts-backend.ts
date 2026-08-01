@@ -11,7 +11,10 @@ export interface TtsCapabilities {
   gpu_available: boolean
   gpu_label: string | null
   preference: TtsBackendPreference
+  /** What we will attach next, given the current preference. */
   effective: ActiveExecutionProvider
+  /** What the currently loaded session actually runs on. `null` until first gen. */
+  active: ActiveExecutionProvider | null
   platform: 'macos' | 'windows' | 'linux' | 'other'
 }
 

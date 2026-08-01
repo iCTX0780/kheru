@@ -55,8 +55,13 @@ pub struct TtsCapabilities {
     pub gpu_label: Option<String>,
     /// The user's persisted preference.
     pub preference: TtsBackend,
-    /// What we will actually attach on the next session build.
+    /// What we will attach on the *next* session build given the current
+    /// preference. May differ from `active` if the preference just changed
+    /// or if the previous CoreML build silently fell back to CPU.
     pub effective: ActiveExecutionProvider,
+    /// What the currently loaded session was actually built with. `None`
+    /// until the first generation runs. This is the ground truth for the UI.
+    pub active: Option<ActiveExecutionProvider>,
     /// Human-readable name of the platform target so the UI can explain
     /// why GPU may not be offered.
     pub platform: &'static str,
@@ -162,6 +167,7 @@ pub fn capabilities() -> TtsCapabilities {
         gpu_label: gpu_label(),
         preference: pref,
         effective: effective_ep(pref),
+        active: super::kokoro::active_ep(),
         platform: platform_label(),
     }
 }

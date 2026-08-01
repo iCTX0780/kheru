@@ -48,6 +48,12 @@ export function SettingsPage() {
     void getStorageBudget().then(setBudget)
     void isStoragePersisted().then(setPersisted)
     void getTtsCapabilities().then(setTtsCaps)
+    // Re-poll capabilities when the tab regains focus — `active` becomes
+    // meaningful only after the first generation, which may happen in the
+    // studio tab after settings was opened.
+    const onFocus = () => void getTtsCapabilities().then(setTtsCaps)
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
   }, [])
 
   const handleTtsBackendChange = useCallback(async (value: string) => {
@@ -285,16 +291,23 @@ function TtsBackendSection({
           ? 'CUDA (not yet wired up — tracked in #14)'
           : 'GPU acceleration not available on this platform')
 
-  const effectiveLabel =
-    caps.effective === 'coreml'
+  const activeLabel = caps.active
+    ? caps.active === 'coreml'
       ? caps.gpu_label ?? 'CoreML'
       : 'CPU'
+    : null
+  const willLabel =
+    caps.effective === 'coreml' ? caps.gpu_label ?? 'CoreML' : 'CPU'
+
+  const description = activeLabel
+    ? `Currently generating on ${activeLabel}.`
+    : `Will use ${willLabel} on the next generation.`
 
   return (
     <SettingsSection
-      icon={caps.effective === 'cpu' ? Cpu : Zap}
+      icon={(caps.active ?? caps.effective) === 'cpu' ? Cpu : Zap}
       title="TTS compute backend"
-      description={`Where Kheru runs the Kokoro voice model. Currently generating on ${effectiveLabel}.`}
+      description={description}
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

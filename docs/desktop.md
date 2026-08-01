@@ -52,9 +52,25 @@ cargo metadata --format-version 1 | jq '.workspace_members'
 
 Expect a single member matching the `kheru` package in `src-tauri/Cargo.toml`. If it lists nothing or errors, the root `Cargo.toml` workspace declaration is missing.
 
-## Known limitations
+## TTS compute backend
 
-- **TTS inference is CPU-only.** The Rust `ort` session uses only the CPU execution provider today; the old browser build's WebGPU path was lost in the migration. On Apple Silicon, short sentences generate in ~1-3s. Wiring up per-platform accelerators (CoreML on macOS, DirectML on Windows, CUDA on Linux/Windows) is tracked in [#14](https://github.com/iCTX0780/kheru/issues/14) and should cut latency to ~200-500ms.
+Settings → **TTS compute backend** picks which ONNX Runtime execution provider Kokoro runs on:
+
+| Option | Behavior |
+|--------|----------|
+| Auto (default) | Use the platform accelerator if available, else CPU |
+| GPU            | Force the accelerator; warns if none is available and stays on CPU |
+| CPU            | Never attach a GPU EP |
+
+Available accelerators today:
+
+| Platform | Accelerator |
+|----------|-------------|
+| macOS    | CoreML (Apple Neural Engine + GPU) |
+| Windows  | *not yet — tracked in [#14](https://github.com/iCTX0780/kheru/issues/14) (DirectML)* |
+| Linux    | *not yet — tracked in [#14](https://github.com/iCTX0780/kheru/issues/14) (CUDA)* |
+
+The preference is stored in `<app_config_dir>/tts-backend.json`. Changing it drops the loaded ORT session; the next generation rebuilds with the new EP.
 
 ## Web/Docker target still works
 

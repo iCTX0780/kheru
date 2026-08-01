@@ -25,3 +25,8 @@ ort = { version = "2.0.0-rc.10", default-features = true }
 regex = "1"
 fancy-regex = "0.14"
 once_cell = "1"
+
+# CoreML EP is macOS-only; enabling it in the general dep block would fail to
+# compile on Windows/Linux. Cargo unions features across a per-target override.
+[target.'cfg(target_os = "macos")'.dependencies]
+ort = { version = "2.0.0-rc.10", default-features = true, features = ["coreml"] }

@@ -1,11 +1,14 @@
-//! ONNX Runtime session that owns the Kokoro model. Loaded once, reused
-//! across every `generate_tts` invocation.
+//! ONNX Runtime session that owns the Kokoro model. Loaded lazily and reused
+//! across every `generate_tts` invocation. Dropped and rebuilt whenever the
+//! user changes the execution-provider preference (see `backend::set_preference`
+//! → `reset_session`).
 
 use ort::session::Session;
 use ort::value::Value;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
+use super::backend::{self, ActiveExecutionProvider};
 use super::TtsError;
 
 const MODEL_ID: &str = "onnx-community/Kokoro-82M-v1.0-ONNX";
@@ -13,10 +16,15 @@ const MODEL_ID: &str = "onnx-community/Kokoro-82M-v1.0-ONNX";
 /// `model_q8f16.onnx` for smaller install size once the output is verified.
 const MODEL_FILE: &str = "onnx/model.onnx";
 
+struct LoadedSession {
+    session: Session,
+    ep: ActiveExecutionProvider,
+}
+
 /// `Session::run` requires `&mut self`, so we wrap it in a Mutex. Kokoro
 /// inference is CPU-bound and single-threaded per call anyway — serializing
 /// concurrent generate_tts requests is fine for now.
-static SESSION: OnceLock<Mutex<Session>> = OnceLock::new();
+static SESSION: OnceLock<Mutex<Option<LoadedSession>>> = OnceLock::new();
 
 /// Path to the bundled Kokoro model tree. In dev, resolved relative to the
 /// Cargo manifest dir. Phase 5+ will switch to `AppHandle::path::resource_dir()`
@@ -26,16 +34,83 @@ pub fn model_dir() -> PathBuf {
     PathBuf::from(base).join("resources/models").join(MODEL_ID)
 }
 
-fn ensure_session() -> Result<&'static Mutex<Session>, TtsError> {
-    if let Some(s) = SESSION.get() {
-        return Ok(s);
+fn slot() -> &'static Mutex<Option<LoadedSession>> {
+    SESSION.get_or_init(|| Mutex::new(None))
+}
+
+/// Drop the cached session so the next `infer` call rebuilds with whichever
+/// EP the current backend preference resolves to.
+pub fn reset_session() {
+    if let Ok(mut guard) = slot().lock() {
+        *guard = None;
     }
+}
+
+fn build_session(ep: ActiveExecutionProvider) -> Result<Session, TtsError> {
     let path = model_dir().join(MODEL_FILE);
-    let session = Session::builder()?
+    let builder = Session::builder()?;
+
+    let builder = match ep {
+        ActiveExecutionProvider::Cpu => builder,
+        ActiveExecutionProvider::CoreMl => attach_coreml(builder)?,
+    };
+
+    // `commit_from_file` takes `&mut self`.
+    let mut builder = builder;
+    builder
         .commit_from_file(&path)
-        .map_err(|e| TtsError::Load(format!("load {}: {}", path.display(), e)))?;
-    let _ = SESSION.set(Mutex::new(session));
-    Ok(SESSION.get().expect("session set"))
+        .map_err(|e| TtsError::Load(format!("load {}: {}", path.display(), e)))
+}
+
+#[cfg(target_os = "macos")]
+fn attach_coreml(builder: ort::session::builder::SessionBuilder)
+    -> Result<ort::session::builder::SessionBuilder, TtsError>
+{
+    use ort::ep::CoreML;
+    // `with_execution_providers` takes `mut self` (ownership) and returns
+    // `BuilderResult` (Result<SessionBuilder>). EP construction errors show
+    // up here; unavailability at *runtime* comes out of the later
+    // `commit_from_file` and we degrade to CPU there (see `ensure_session`).
+    builder
+        .with_execution_providers([CoreML::default().build()])
+        .map_err(|e| TtsError::Load(format!("attach CoreML EP: {e}")))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn attach_coreml(builder: ort::session::builder::SessionBuilder)
+    -> Result<ort::session::builder::SessionBuilder, TtsError>
+{
+    // Not reachable — `effective_ep` never returns CoreMl off macOS. Kept as a
+    // total function so kokoro.rs compiles across platforms.
+    Ok(builder)
+}
+
+fn ensure_session() -> Result<&'static Mutex<Option<LoadedSession>>, TtsError> {
+    let target = backend::effective_ep(backend::current_preference());
+    let mutex = slot();
+    {
+        let guard = mutex.lock().map_err(|_| TtsError::Load("session mutex poisoned".into()))?;
+        if let Some(existing) = guard.as_ref() {
+            if existing.ep == target {
+                return Ok(mutex);
+            }
+        }
+    }
+    // Either no session yet, or EP changed since last load — (re)build.
+    let session = match build_session(target) {
+        Ok(s) => LoadedSession { session: s, ep: target },
+        Err(err) if matches!(target, ActiveExecutionProvider::CoreMl) => {
+            // GPU EP failed to attach at commit time; degrade gracefully to
+            // CPU so the app still generates.
+            eprintln!("[tts] CoreML session build failed ({err}); falling back to CPU");
+            let s = build_session(ActiveExecutionProvider::Cpu)?;
+            LoadedSession { session: s, ep: ActiveExecutionProvider::Cpu }
+        }
+        Err(err) => return Err(err),
+    };
+    let mut guard = mutex.lock().map_err(|_| TtsError::Load("session mutex poisoned".into()))?;
+    *guard = Some(session);
+    Ok(mutex)
 }
 
 /// Run one forward pass. `input_ids` should already include the leading and
@@ -49,9 +124,12 @@ pub fn infer(input_ids: &[i64], style: &[f32], speed: f32) -> Result<Vec<f32>, T
         )));
     }
     let session_mutex = ensure_session()?;
-    let mut session = session_mutex
+    let mut guard = session_mutex
         .lock()
         .map_err(|_| TtsError::Load("session mutex poisoned".into()))?;
+    let loaded = guard
+        .as_mut()
+        .ok_or_else(|| TtsError::Load("session slot empty after ensure".into()))?;
     let seq_len = input_ids.len();
 
     // Use the tuple-shape form of Value::from_array so we don't drag ndarray
@@ -61,7 +139,7 @@ pub fn infer(input_ids: &[i64], style: &[f32], speed: f32) -> Result<Vec<f32>, T
     let style_value = Value::from_array(([1_usize, 256_usize], style.to_vec()))?;
     let speed_value = Value::from_array(([1_usize], vec![speed]))?;
 
-    let outputs = session.run(ort::inputs! {
+    let outputs = loaded.session.run(ort::inputs! {
         "input_ids" => ids_value,
         "style" => style_value,
         "speed" => speed_value,

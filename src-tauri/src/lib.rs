@@ -35,9 +35,16 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![tts::generate_tts])
+        .invoke_handler(tauri::generate_handler![
+            tts::generate_tts,
+            tts::tts_capabilities,
+            tts::tts_set_backend,
+        ])
         .setup(|app| {
             wire_bundled_espeak(app);
+            if let Ok(dir) = app.path().app_config_dir() {
+                tts::backend::init(dir);
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

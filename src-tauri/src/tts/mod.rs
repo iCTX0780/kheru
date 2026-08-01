@@ -10,6 +10,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod backend;
 pub mod kokoro;
 pub mod normalize;
 pub mod phonemize;
@@ -90,6 +91,27 @@ pub async fn generate_tts(args: GenerateArgs) -> Result<GenerateResult, TtsError
         duration_seconds: samples.len() as f32 / KOKORO_SAMPLE_RATE as f32,
         gen_ms,
     })
+}
+
+/// Query the current TTS execution backend + what's available on this device.
+#[tauri::command]
+pub fn tts_capabilities() -> backend::TtsCapabilities {
+    backend::capabilities()
+}
+
+/// Persist the user's backend preference. Drops the cached ORT session so the
+/// next generation rebuilds with the new EP. Returns fresh capabilities.
+#[tauri::command]
+pub fn tts_set_backend(backend_pref: String) -> Result<backend::TtsCapabilities, TtsErrorSerde> {
+    let parsed = match backend_pref.as_str() {
+        "auto" => backend::TtsBackend::Auto,
+        "gpu" => backend::TtsBackend::Gpu,
+        "cpu" => backend::TtsBackend::Cpu,
+        other => return Err(TtsErrorSerde(format!("unknown backend: {other}"))),
+    };
+    backend::set_preference(parsed).map_err(TtsErrorSerde)?;
+    kokoro::reset_session();
+    Ok(backend::capabilities())
 }
 
 fn is_known_voice(voice: &str) -> bool {

@@ -72,6 +72,12 @@ Available accelerators today:
 
 The preference is stored in `<app_config_dir>/tts-backend.json`. Changing it drops the loaded ORT session; the next generation rebuilds with the new EP.
 
+### Known ceiling on macOS today
+
+Even with Auto/GPU on macOS, the stock `Kokoro-82M-v1.0-ONNX` model runs mostly on CPU. ORT's CoreML EP does register — the debug log line reads `[tts] session built with EP=coreml` — but Kokoro was exported with unbounded dynamic input shapes, and CoreML's MLProgram runtime rejects those subgraphs ("unbounded dimension is not supported"). The default `NeuralNetwork` format tolerates unbounded dims but has narrower op coverage, so CoreML claims only a partial subgraph and the rest falls back to CPU. `macmon` will show CPU-dominant utilization regardless.
+
+Meaningful macOS acceleration needs either a bounded-shape ONNX re-export (fix the max `seq_len`) or a native `.mlpackage` conversion via coremltools. Tracked in [#14](https://github.com/iCTX0780/kheru/issues/14).
+
 ## Web/Docker target still works
 
 The desktop shell is additive. `pnpm dev`, `pnpm build`, `pnpm start`, and `docker compose up` are all unchanged and continue to serve the app through the Nitro server bundle.

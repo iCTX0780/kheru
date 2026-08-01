@@ -84,28 +84,26 @@ fn build_session(ep: ActiveExecutionProvider) -> Result<Session, TtsError> {
 fn attach_coreml(builder: ort::session::builder::SessionBuilder)
     -> Result<ort::session::builder::SessionBuilder, TtsError>
 {
-    use ort::ep::coreml::{ComputeUnits, ModelFormat, SpecializationStrategy};
+    use ort::ep::coreml::ComputeUnits;
     use ort::ep::CoreML;
 
-    // MLProgram (CoreML 5+, macOS 12+) has broader op coverage than the
-    // default NeuralNetwork format — the difference matters for Kokoro,
-    // which is RNN/transformer-heavy. Without this, ORT's CoreML EP claims
-    // only a small subgraph and the rest falls back to CPU, so ANE/GPU
-    // utilization stays near zero (visible in macmon as CPU-dominant).
+    // NOTE: stock `Kokoro-82M-v1.0-ONNX` from HuggingFace was exported for
+    // generic ORT with *unbounded* dynamic dims (seq_len can be anything),
+    // which CoreML MLProgram flat-out rejects ("unbounded dimension is not
+    // supported"). We use the default NeuralNetwork format, which tolerates
+    // unbounded dims but has narrower op coverage — so CoreML claims a
+    // subset of Kokoro's graph and the rest runs on CPU. macmon will show
+    // CPU-dominant load on this model regardless of what we do here. See
+    // GitHub issue #14 for the model-side fix (bounded re-export or native
+    // .mlpackage).
     //
-    // FastPrediction trades specialization time (first inference) for
-    // lower per-call latency after warm-up.
-    //
-    // `.error_on_failure()` flips the default of `fail_silently` — without
-    // it, EP registration errors are swallowed and `commit_from_file`
-    // returns Ok with CPU, masking whether CoreML was actually attached.
+    // `.error_on_failure()` is deliberately NOT set here — ORT partitions
+    // the graph and silently drops rejected subgraphs to CPU, which is the
+    // behavior we want. `error_on_failure` fires only when the EP itself
+    // can't register, which we handle via the fallback arm in `ensure_session`.
     let ep = CoreML::default()
-        .with_model_format(ModelFormat::MLProgram)
         .with_compute_units(ComputeUnits::All)
-        .with_specialization_strategy(SpecializationStrategy::FastPrediction)
-        .with_static_input_shapes(false)
-        .build()
-        .error_on_failure();
+        .build();
     builder
         .with_execution_providers([ep])
         .map_err(|e| TtsError::Load(format!("attach CoreML EP: {e}")))

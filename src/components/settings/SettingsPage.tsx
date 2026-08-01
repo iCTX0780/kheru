@@ -337,6 +337,14 @@ function TtsBackendSection({
           <span>{gpuHint}</span>
         </div>
 
+        {caps.gpu_available && caps.active === 'coreml' ? (
+          <p className="text-xs text-muted-foreground">
+            Note: on the stock Kokoro-82M model, CoreML claims only a subset of ops — the
+            rest still runs on CPU. Full GPU/ANE acceleration needs a bounded-shape re-export
+            (tracked in issue #14).
+          </p>
+        ) : null}
+
         {!caps.gpu_available && caps.preference === 'gpu' ? (
           <p className="text-xs text-destructive">
             No accelerator was detected — generation is falling back to CPU. Switch to Auto or CPU

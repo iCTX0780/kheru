@@ -33,6 +33,21 @@ Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
 First synthesis downloads the Kokoro model (~5–15 MB) into the browser.
 
+## Desktop app (Tauri)
+
+Kheru also ships as a native desktop app via [Tauri](https://tauri.app).
+
+Prerequisites: Rust toolchain + platform build tools (see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)).
+
+```bash
+git clone https://github.com/iCTX0780/kheru.git && cd kheru
+pnpm install
+pnpm tauri:dev      # dev window pointing at the Vite dev server
+pnpm tauri:build    # produces platform installers under src-tauri/target/release/bundle
+```
+
+Rust code lives under `src-tauri/`; the repo root is a Cargo workspace so `cargo check` / `cargo fmt` / `cargo test` work from anywhere. See [docs/desktop.md](docs/desktop.md) for platform notes and data locations.
+
 ## Docker (no Node install)
 
 Requires [Docker](https://docs.docker.com/get-docker/) or [OrbStack](https://orbstack.dev/).
@@ -70,6 +85,9 @@ docker run --rm -p 3000:3000 -e HOST=0.0.0.0 -e PORT=3000 kheru
 | `pnpm typecheck` | TypeScript |
 | `pnpm build` | Production build |
 | `pnpm start` | Run production server (after build) |
+| `pnpm build:tauri` | Static SPA build consumed by the Tauri shell |
+| `pnpm tauri:dev` | Run the desktop app in dev mode |
+| `pnpm tauri:build` | Bundle desktop installers (.dmg / .msi / .AppImage / .deb) |
 
 ## Feedback
 

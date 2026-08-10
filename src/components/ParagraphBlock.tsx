@@ -190,7 +190,7 @@ export const ParagraphBlock = memo(function ParagraphBlock({
             </div>
           )}
 
-          {isPlaying && hasText ? (
+          {isPlaying && isActive && !isSelected && hasText ? (
             <div className="text-base leading-relaxed" aria-live="polite">
               <HighlightedText
                 text={paragraph.text}

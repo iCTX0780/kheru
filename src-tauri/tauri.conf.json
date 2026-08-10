@@ -1,0 +1,60 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Kheru",
+  "version": "0.1.0",
+  "identifier": "com.kheru.studio",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://127.0.0.1:3000",
+    "beforeBuildCommand": "pnpm build:tauri",
+    "frontendDist": "../dist/client"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Kheru",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": ["default"],
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": ["$RESOURCE/**"],
+          "deny": []
+        }
+      }
+    },
+    "withGlobalTauri": false
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "msi", "nsis", "appimage", "deb"],
+    "resources": [
+      "resources/models/**/*",
+      "resources/espeak-ng/**/*",
+      "Assets.car"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Music",
+    "shortDescription": "Local multi-speaker TTS studio",
+    "longDescription": "Kheru is a local, offline text-to-speech studio: write scripts, assign voices, generate audio on-device, and export mixes."
+  }
+}

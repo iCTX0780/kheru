@@ -1,7 +1,7 @@
 import { canExportFullMix, fetchFullMixBuffer } from '@/lib/export'
-import { downloadBlob } from '@/lib/export-download'
 import { exportBaseName } from '@/lib/export-filename'
 import { buildZip } from '@/lib/export-zip'
+import { saveBlob, PLAYPACK_FILTERS } from '@/lib/save-file'
 import { buildSegmentsFromParagraphs, playableParagraphs } from '@/lib/playback-segments'
 import type { Chapter, Paragraph } from '@/stores/studio'
 
@@ -123,8 +123,9 @@ export async function exportPlaypack(
   ])
 
   const base = exportBaseName(projectTitle, chapterTitle)
-  downloadBlob(
+  await saveBlob(
     new Blob([new Uint8Array(zipped)], { type: PLAYPACK_MIME_TYPE }),
-    `${base}.${PLAYPACK_EXTENSION}`
+    `${base}.${PLAYPACK_EXTENSION}`,
+    PLAYPACK_FILTERS
   )
 }

@@ -1,6 +1,15 @@
 import type { ClientTtsLoadState, ClientTtsSynthResult, WorkerOutboundMessage } from '@/lib/client-tts/types'
 import { GenerationCancelledError } from '@/lib/generation-cancel'
 
+/**
+ * True when running inside Tauri's webview. In that mode we route TTS through
+ * the Rust `generate_tts` command instead of the browser Kokoro worker,
+ * because WKWebView on macOS cannot execute the transformers.js/ORT-Web stack.
+ */
+function isTauriRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+}
+
 type PendingGenerate = {
   resolve: (result: ClientTtsSynthResult & { genMs: number }) => void
   reject: (error: Error) => void
@@ -105,6 +114,21 @@ export async function warmClientTtsEngine(): Promise<{ device: string; dtype: st
     error: null,
   })
 
+  if (isTauriRuntime()) {
+    // Native Rust path — model is bundled with the app, no download step.
+    // Report ready immediately so the UI leaves the loading state.
+    const result = { device: 'native', dtype: 'fp32', loadMs: 0 }
+    emitLoadState({
+      status: 'ready',
+      progress: 100,
+      device: result.device,
+      dtype: result.dtype,
+      error: null,
+    })
+    initPromise = Promise.resolve(result)
+    return initPromise
+  }
+
   initPromise = new Promise((resolve, reject) => {
     const w = getWorker()
     const onMessage = (event: MessageEvent<WorkerOutboundMessage>) => {
@@ -133,14 +157,38 @@ export async function warmClientTtsEngine(): Promise<{ device: string; dtype: st
   return initPromise
 }
 
+async function generateViaTauri(
+  text: string,
+  voiceKey: string,
+  speed: number
+): Promise<ClientTtsSynthResult & { genMs: number }> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  const result = await invoke<{ bytes: number[] | Uint8Array; duration_seconds: number; gen_ms: number }>(
+    'generate_tts',
+    { args: { text, voice: voiceKey, speed } }
+  )
+  // Tauri v2's invoke() decodes Rust `Vec<u8>` as a plain number[] on the
+  // wire; copy into a fresh Uint8Array so the Blob owns an ArrayBuffer (not
+  // ArrayBufferLike, which strict TS refuses as a BlobPart).
+  const source = result.bytes instanceof Uint8Array ? result.bytes : new Uint8Array(result.bytes)
+  const owned = new Uint8Array(source.length)
+  owned.set(source)
+  const blob = new Blob([owned.buffer], { type: 'audio/wav' })
+  return { blob, duration: result.duration_seconds, genMs: result.gen_ms }
+}
+
 export async function clientTtsGenerate(
   text: string,
   voiceKey: string,
   speed: number
 ): Promise<ClientTtsSynthResult & { genMs: number }> {
   await warmClientTtsEngine()
-  const id = crypto.randomUUID()
 
+  if (isTauriRuntime()) {
+    return generateViaTauri(text, voiceKey, speed)
+  }
+
+  const id = crypto.randomUUID()
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject })
     getWorker().postMessage({ type: 'generate', id, text, voiceKey, speed })

@@ -1,7 +1,11 @@
 import { CLIENT_TTS_SAMPLE_RATE } from '@/lib/client-tts/config'
-import { readWavBuffer, writePcm16WavBuffer } from '@/lib/client-tts/wav'
+import { readWavBuffer, resampleAudio, writePcm16WavBuffer } from '@/lib/client-tts/wav'
 
-/** Concatenate WAV blobs with silence gaps (default 0.4s between clips). */
+/**
+ * Concatenate WAV blobs with silence gaps (default 0.4s between clips).
+ * Clips at differing sample rates are resampled to the target rate so
+ * historical OPFS caches (22050 Hz) mix cleanly with fresh 24 kHz clips.
+ */
 export async function concatWavBlobs(
   clips: Blob[],
   gaps: number[],
@@ -14,10 +18,8 @@ export async function concatWavBlobs(
   for (let i = 0; i < clips.length; i++) {
     const buffer = await clips[i].arrayBuffer()
     const { samples, sampleRate: clipRate } = readWavBuffer(buffer)
-    if (clipRate !== sampleRate) {
-      throw new Error(`Sample rate mismatch: expected ${sampleRate}, got ${clipRate}`)
-    }
-    parts.push(samples)
+    const aligned = clipRate === sampleRate ? samples : resampleAudio(samples, clipRate, sampleRate)
+    parts.push(aligned)
     if (i < clips.length - 1) {
       const gap = gaps[i] ?? 0.4
       const silenceLen = Math.floor(gap * sampleRate)

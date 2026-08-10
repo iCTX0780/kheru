@@ -20,6 +20,7 @@ import { DEFAULT_VOICE_ID, lengthScaleForSpeaker, voiceForSpeaker, VOICE_BY_ID }
 export type ParagraphStatus = 'idle' | 'generating' | 'done' | 'stale' | 'error'
 export type ChapterStatus = 'idle' | 'generating' | 'done' | 'stale' | 'error'
 export type PlaybackMode = 'paragraph' | 'chapter' | 'sequence' | null
+export type StudioView = 'editor' | 'presenter'
 export interface ParagraphGeneration {
   id: string
   createdAt: string
@@ -119,9 +120,11 @@ export interface StudioStore {
   chapterTitle: string
   chapters: ProjectChapter[]
   activeChapterId: string
+  view: StudioView
 
   setVoices: (voices: string[], defaultVoice?: string) => void
   setSelectedParagraphId: (id: string | null) => void
+  setView: (view: StudioView) => void
   setProjectId: (id: string) => void
   setProjectTitle: (title: string) => void
   setChapterTitle: (title: string) => void
@@ -298,8 +301,11 @@ export const useStudioStore = create<StudioStore>()((set) => ({
   chapterTitle: 'Script',
   chapters: [],
   activeChapterId: '',
+  view: 'editor',
 
   setSelectedParagraphId: (id) => set({ selectedParagraphId: id }),
+
+  setView: (view) => set({ view }),
 
   setProjectId: (id) => set({ projectId: id }),
 

@@ -238,6 +238,25 @@ textarea.font-mono {
   font-family: var(--font-mono);
 }
 
+@keyframes kheru-ambient-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.02); }
+}
+
+.motion-safe\:animate-ambient-pulse {
+  animation: kheru-ambient-pulse 3.6s ease-in-out infinite;
+}
+
+/* Tauri drag region — every element under a drag region needs no-drag
+   applied to stay interactive. Applied via data attribute so we don't
+   touch every component. */
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] input,
+[data-tauri-drag-region] a,
+[data-tauri-drag-region] [role="button"] {
+  -webkit-app-region: no-drag;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

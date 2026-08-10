@@ -14,6 +14,7 @@ interface KeyboardShortcutsDialogProps {
 const SHORTCUTS = [
   { keys: 'Space', description: 'Play or pause (when not typing)' },
   { keys: '↑ / ↓', description: 'Select previous or next paragraph' },
+  { keys: '⌘⇧P / Ctrl+Shift+P', description: 'Toggle Editor / Presenter view' },
   { keys: '?', description: 'Show keyboard shortcuts' },
   { keys: 'Esc', description: 'Close dialogs' },
 ]

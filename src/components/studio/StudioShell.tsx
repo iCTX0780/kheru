@@ -21,6 +21,7 @@ import { AlertCircle } from 'lucide-react'
 import { NavRail } from '@/components/studio/NavRail'
 import { ScriptCanvas } from '@/components/studio/ScriptCanvas'
 import { ContextualInspector } from '@/components/studio/ContextualInspector'
+import { PresenterStage } from '@/components/studio/PresenterStage'
 import { StudioToolbar } from '@/components/studio/StudioToolbar'
 import { SegmentedTimelinePlayer } from '@/components/SegmentedTimelinePlayer'
 import { GenerationProgressPanel } from '@/components/studio/GenerationProgressPanel'
@@ -83,6 +84,8 @@ export function StudioShell({
 
   const importParagraphs = useStudioStore((s) => s.importParagraphs)
   const storeVoices = useStudioStore((s) => s.voices)
+  const view = useStudioStore((s) => s.view)
+  const setView = useStudioStore((s) => s.setView)
 
   const availableVoiceIds = voices.length > 0 ? voices.map((v) => v.id) : storeVoices
   const fallbackVoice = availableVoiceIds[0] ?? DEFAULT_VOICE_ID
@@ -143,6 +146,27 @@ export function StudioShell({
     }
   }, [isMobile])
 
+  // Presenter is desktop-only — the stage layout needs horizontal room.
+  useEffect(() => {
+    if (isMobile && view === 'presenter') setView('editor')
+  }, [isMobile, view, setView])
+
+  // ⌘⇧P / Ctrl+Shift+P — toggle Editor ↔ Presenter (desktop only).
+  useEffect(() => {
+    if (isMobile) return
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return
+      const mod = event.metaKey || event.ctrlKey
+      if (mod && event.shiftKey && (event.key === 'p' || event.key === 'P')) {
+        event.preventDefault()
+        setView(view === 'presenter' ? 'editor' : 'presenter')
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isMobile, view, setView])
+
   const inspector = (
     <ContextualInspector
       voices={voices}
@@ -185,7 +209,9 @@ export function StudioShell({
           </div>
         )}
 
-        {isMobile ? (
+        {!isMobile && view === 'presenter' ? (
+          <PresenterStage />
+        ) : isMobile ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden pb-28">
             {leftOpen && (
               <div className="max-h-44 shrink-0 border-b border-border">

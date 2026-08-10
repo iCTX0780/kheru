@@ -105,7 +105,12 @@ export function StudioToolbar({
         )}
         data-tauri-drag-region={macTauri ? '' : undefined}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        {/* Interactive left group — explicitly opts out of the header's
+            drag region so buttons/links/inputs receive clicks in Tauri. */}
+        <div
+          className="flex min-w-0 flex-1 items-center gap-2"
+          data-tauri-drag-region="false"
+        >
           {view === 'editor' && (
             <Button
               type="button"
@@ -141,7 +146,10 @@ export function StudioToolbar({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div
+          className="flex flex-wrap items-center gap-1.5"
+          data-tauri-drag-region="false"
+        >
           <Button
             type="button"
             variant="secondary"

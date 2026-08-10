@@ -247,16 +247,6 @@ textarea.font-mono {
   animation: kheru-ambient-pulse 3.6s ease-in-out infinite;
 }
 
-/* Tauri drag region — every element under a drag region needs no-drag
-   applied to stay interactive. Applied via data attribute so we don't
-   touch every component. */
-[data-tauri-drag-region] button,
-[data-tauri-drag-region] input,
-[data-tauri-drag-region] a,
-[data-tauri-drag-region] [role="button"] {
-  -webkit-app-region: no-drag;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

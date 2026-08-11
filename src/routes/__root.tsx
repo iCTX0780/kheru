@@ -1,8 +1,9 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from 'next-themes'
 import { queryClient } from '@/lib/query-client'
+import { installGlobalErrorHandlers } from '@/lib/log'
 import '@/styles/globals.css'
 
 const ReactQueryDevtools = import.meta.env.DEV
@@ -46,6 +47,10 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    installGlobalErrorHandlers()
+  }, [])
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

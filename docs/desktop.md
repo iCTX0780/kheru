@@ -78,6 +78,31 @@ Even with Auto/GPU on macOS, the stock `Kokoro-82M-v1.0-ONNX` model runs mostly 
 
 Meaningful macOS acceleration needs either a bounded-shape ONNX re-export (fix the max `seq_len`) or a native `.mlpackage` conversion via coremltools. Tracked in [#14](https://github.com/iCTX0780/kheru/issues/14).
 
+## Logs & diagnostics
+
+Kheru writes local rotating log files via `tauri-plugin-log` — nothing is sent
+off the device. React errors (uncaught + unhandled promise rejections) flow
+into the same file, so support requests can rely on it as a single source of
+truth.
+
+| Platform | Log directory |
+|----------|---------------|
+| macOS | `~/Library/Logs/com.kheru.studio/` |
+| Windows | `%APPDATA%\com.kheru.studio\logs\` |
+| Linux | `~/.local/share/com.kheru.studio/logs/` |
+
+**Reveal from inside the app:** Settings → **Diagnostics** → *Reveal in Finder*.
+
+**Verbose ORT partition log** — opt in per-launch to see which ONNX subgraphs
+CoreML claimed vs. dropped to CPU:
+
+```bash
+KHERU_ORT_VERBOSE=1 /Applications/Kheru.app/Contents/MacOS/kheru
+```
+
+Launching the binary directly (instead of `open Kheru.app`) also keeps stdout
+attached, so `log::*` calls print to the terminal in addition to the log file.
+
 ## Web/Docker target still works
 
 The desktop shell is additive. `pnpm dev`, `pnpm build`, `pnpm start`, and `docker compose up` are all unchanged and continue to serve the app through the Nitro server bundle.

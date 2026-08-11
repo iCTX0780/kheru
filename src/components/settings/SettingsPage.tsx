@@ -2,7 +2,18 @@ import { useCallback, useEffect, useState, type ComponentType } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
-import { ArrowLeft, Cpu, Gauge, HardDrive, Palette, ShieldCheck, Zap } from 'lucide-react'
+import {
+  ArrowLeft,
+  ClipboardCopy,
+  Cpu,
+  FolderOpen,
+  Gauge,
+  HardDrive,
+  Palette,
+  ScrollText,
+  ShieldCheck,
+  Zap,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -34,6 +45,7 @@ import {
   type TtsBackendPreference,
   type TtsCapabilities,
 } from '@/lib/tts-backend'
+import { getLogDirectory, revealLogDirectory } from '@/lib/diagnostics'
 import { cn } from '@/lib/utils'
 
 export function SettingsPage() {
@@ -152,6 +164,8 @@ export function SettingsPage() {
           <TtsBackendSection caps={ttsCaps} busy={ttsBusy} onChange={handleTtsBackendChange} />
         ) : null}
 
+        <DiagnosticsSection />
+
         <SettingsSection
           icon={HardDrive}
           title="Storage usage"
@@ -267,6 +281,77 @@ function AppearanceSection() {
         ) : (
           <Skeleton className="h-9 w-40 rounded-md" />
         )}
+      </div>
+    </SettingsSection>
+  )
+}
+
+function DiagnosticsSection() {
+  const [logDir, setLogDir] = useState<string | null>(null)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void getLogDirectory().then((dir) => {
+      if (cancelled) return
+      setLogDir(dir)
+      setChecked(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Browser build: `getLogDirectory` returns null and there's nothing useful
+  // to render — logs stay in the devtools console.
+  if (checked && !logDir) return null
+
+  const handleReveal = async () => {
+    try {
+      await revealLogDirectory()
+    } catch (err) {
+      toast.error(`Couldn't open log folder: ${(err as Error).message}`)
+    }
+  }
+
+  const handleCopy = async () => {
+    if (!logDir) return
+    try {
+      await navigator.clipboard.writeText(logDir)
+      toast.success('Log path copied')
+    } catch {
+      toast.error('Clipboard unavailable — select and copy the path manually.')
+    }
+  }
+
+  return (
+    <SettingsSection
+      icon={ScrollText}
+      title="Diagnostics"
+      description="Kheru writes local log files with recent errors and TTS activity. Nothing is sent anywhere — attach the folder to a bug report if you need help."
+    >
+      <div className="flex flex-col gap-3">
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
+          <p className="break-all font-mono text-xs text-muted-foreground">
+            {logDir ?? 'Locating log directory…'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={() => void handleReveal()}>
+            <FolderOpen data-icon="inline-start" />
+            Reveal in Finder
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void handleCopy()}
+            disabled={!logDir}
+          >
+            <ClipboardCopy data-icon="inline-start" />
+            Copy path
+          </Button>
+        </div>
       </div>
     </SettingsSection>
   )

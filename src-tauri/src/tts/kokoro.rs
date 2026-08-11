@@ -132,13 +132,13 @@ fn ensure_session() -> Result<&'static Mutex<Option<LoadedSession>>, TtsError> {
     // Either no session yet, or EP changed since last load — (re)build.
     let session = match build_session(target) {
         Ok(s) => {
-            eprintln!("[tts] session built with EP={}", target.label());
+            log::info!("tts session built with EP={}", target.label());
             LoadedSession { session: s, ep: target }
         }
         Err(err) if matches!(target, ActiveExecutionProvider::CoreMl) => {
             // GPU EP failed to attach at commit time; degrade gracefully to
             // CPU so the app still generates.
-            eprintln!("[tts] CoreML session build failed ({err}); falling back to CPU");
+            log::warn!("CoreML session build failed ({err}); falling back to CPU");
             let s = build_session(ActiveExecutionProvider::Cpu)?;
             LoadedSession { session: s, ep: ActiveExecutionProvider::Cpu }
         }

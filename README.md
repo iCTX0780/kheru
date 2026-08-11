@@ -68,10 +68,10 @@ pnpm install
 pnpm tauri:build                 # produces .app + .dmg on macOS
 ```
 
-Artifacts land under `src-tauri/target/release/bundle/`. On macOS the installable `.dmg` is at:
+Artifacts land under `target/release/bundle/` (workspace root — Cargo puts them there because the repo root is a Cargo workspace, not under the `src-tauri/` crate). On macOS the installable `.dmg` is at:
 
 ```
-src-tauri/target/release/bundle/dmg/Kheru_<version>_<arch>.dmg
+target/release/bundle/dmg/Kheru_<version>_<arch>.dmg
 ```
 
 Because the build isn't code-signed yet, macOS Gatekeeper will refuse the first launch. Right-click the app → **Open** → **Open** to authorize it once. Signing + notarization are on the roadmap.

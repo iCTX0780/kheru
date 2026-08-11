@@ -15,7 +15,10 @@ import { dirname } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(__dirname, '..')
-const BUNDLE_ROOT = join(REPO, 'src-tauri/target/release/bundle/macos')
+// Cargo places `target/` at the workspace root (repo root), not under the
+// src-tauri crate. The old path was left over from before the root
+// Cargo.toml declared a workspace — patching there silently no-ops.
+const BUNDLE_ROOT = join(REPO, 'target/release/bundle/macos')
 
 function findAppBundle() {
   if (!existsSync(BUNDLE_ROOT)) return null

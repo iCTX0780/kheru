@@ -55,6 +55,23 @@ fn currency_and_year_pass_through() {
     );
 }
 
+/// Contractions must phonemize as single words, not split on the apostrophe
+/// into letter names. Kokoro-js splits on `'` (which turns "I've" into
+/// `ˈaɪ'vˈiː` = "Aye-Vee") — that's a kokoro-js bug we deliberately
+/// diverge from. Users hear "I've" not "I - V".
+#[test]
+fn contractions_stay_whole() {
+    assert_eq!(phonemize_us("I've been thinking."), "aɪv bˌɪn θˈɪŋkɪŋ.");
+    assert!(
+        !phonemize_us("Don't do that.").contains("dˈɑːn'"),
+        "'Don't' should not split into letters around the apostrophe",
+    );
+    assert!(
+        !phonemize_us("We're going.").contains("wˈiː'"),
+        "'We're' should not split into letters around the apostrophe",
+    );
+}
+
 /// Kokoro-trained POS-aware stress: "Object" (noun) has initial stress,
 /// "object" (verb) has second-syllable stress. Kokoro-js gets this via
 /// how phonemizer processes each word — our per-chunk phonemization

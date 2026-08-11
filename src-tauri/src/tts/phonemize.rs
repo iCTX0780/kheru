@@ -23,15 +23,23 @@ const ENV_BIN: &str = "KHERU_ESPEAK_BIN";
 const ENV_DATA: &str = "KHERU_ESPEAK_DATA";
 const ENV_DYLD: &str = "KHERU_ESPEAK_DYLD";
 
-/// Punctuation-split regex, ported from kokoro-js's `u` regex (see
+/// Punctuation-split regex, based on kokoro-js's `u` regex (see
 /// `node_modules/kokoro-js/dist/kokoro.js` line 1). Splits input into
 /// runs of punctuation vs runs of non-punctuation. Kokoro-js phonemizes
 /// only the non-punctuation chunks and glues the punctuation back
 /// verbatim — Kokoro's char-level tokenizer treats `,`, `.`, `;`, `!`,
 /// `?` etc. as prosodic pause markers, so preserving them is what makes
 /// speech sound paced instead of rushed.
+///
+/// Deliberate divergence from kokoro-js: we DO NOT split on the apostrophe.
+/// Kokoro-js's regex includes `'`, which causes contractions like `I've` /
+/// `Don't` / `we're` to fragment into `I` + `'` + `ve`, each phonemized as
+/// a bare letter name → sounds like "Aye - Vee" instead of "I've". That's
+/// a bug in kokoro-js (Docker inherits it too). We take the correct
+/// behavior here even though it means the phoneme string won't be
+/// byte-identical to Docker's for text containing contractions.
 static PUNCT_SPLIT: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(\s*[;:,.!?¡¿—…"«»“”(){}\[\]',]+\s*)+"#).unwrap()
+    Regex::new(r#"(\s*[;:,.!?¡¿—…"«»“”(){}\[\]]+\s*)+"#).unwrap()
 });
 
 /// Kokoro post-processing pass, ported verbatim from kokoro-js's `phonemize`

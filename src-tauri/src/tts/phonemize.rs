@@ -23,6 +23,17 @@ const ENV_BIN: &str = "KHERU_ESPEAK_BIN";
 const ENV_DATA: &str = "KHERU_ESPEAK_DATA";
 const ENV_DYLD: &str = "KHERU_ESPEAK_DYLD";
 
+/// Punctuation-split regex, ported from kokoro-js's `u` regex (see
+/// `node_modules/kokoro-js/dist/kokoro.js` line 1). Splits input into
+/// runs of punctuation vs runs of non-punctuation. Kokoro-js phonemizes
+/// only the non-punctuation chunks and glues the punctuation back
+/// verbatim — Kokoro's char-level tokenizer treats `,`, `.`, `;`, `!`,
+/// `?` etc. as prosodic pause markers, so preserving them is what makes
+/// speech sound paced instead of rushed.
+static PUNCT_SPLIT: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"(\s*[;:,.!?¡¿—…"«»“”(){}\[\]',]+\s*)+"#).unwrap()
+});
+
 /// Kokoro post-processing pass, ported verbatim from kokoro-js's `phonemize`
 /// function (after the espeak-ng call, before tokenization). Kokoro's regexes
 /// use look-around, so we use `fancy-regex` (the standard `regex` crate
@@ -57,9 +68,46 @@ fn espeak_binary() -> PathBuf {
 }
 
 /// Turn arbitrary text into a Kokoro-compatible phoneme string.
+///
+/// Mirrors kokoro-js's `m` function: splits input on punctuation runs,
+/// phonemizes only the non-punctuation chunks through espeak-ng, and
+/// glues the punctuation back verbatim. This matters because Kokoro's
+/// char-level tokenizer treats punctuation as prosody markers — if we
+/// send the whole text as one espeak-ng call, punctuation gets stripped
+/// during our whitespace normalization and the model produces speech
+/// with no pauses (sounds rushed/faster than the Docker/web build).
 pub fn phonemize(text: &str, voice_id: &str) -> Result<String, TtsError> {
     let lang = voice_to_espeak_lang(voice_id);
 
+    let mut out = String::with_capacity(text.len() * 2);
+    let mut cursor = 0usize;
+    for cap in PUNCT_SPLIT.captures_iter(text).flatten() {
+        let m = cap.get(0).unwrap();
+        // Phonemize the non-punctuation chunk before this punctuation run.
+        if m.start() > cursor {
+            let chunk = &text[cursor..m.start()];
+            if !chunk.trim().is_empty() {
+                out.push_str(&espeak_chunk(chunk, lang)?);
+            }
+        }
+        // Preserve the punctuation run verbatim so it reaches the tokenizer.
+        out.push_str(m.as_str());
+        cursor = m.end();
+    }
+    // Trailing non-punctuation chunk.
+    if cursor < text.len() {
+        let chunk = &text[cursor..];
+        if !chunk.trim().is_empty() {
+            out.push_str(&espeak_chunk(chunk, lang)?);
+        }
+    }
+
+    Ok(post_process(&out, lang))
+}
+
+/// Spawn espeak-ng once for a single non-punctuation chunk. Extracted from
+/// `phonemize` so the split-on-punctuation loop can call it per chunk.
+fn espeak_chunk(text: &str, lang: &str) -> Result<String, TtsError> {
     let mut cmd = Command::new(espeak_binary());
     cmd.args(["-q", "--ipa=3", "-v", lang, text]);
 
@@ -87,18 +135,23 @@ pub fn phonemize(text: &str, voice_id: &str) -> Result<String, TtsError> {
         )));
     }
 
-    // espeak-ng emits IPA one word per line separated by newlines, with a
-    // trailing newline. Collapse to single spaces to match phonemizer npm.
+    // espeak-ng emits IPA one word per line separated by newlines. Collapse
+    // whitespace to single spaces so glued chunks join cleanly around the
+    // preserved punctuation from `phonemize`.
     let raw = String::from_utf8_lossy(&output.stdout);
     let joined = raw.split_whitespace().collect::<Vec<_>>().join(" ");
-
-    Ok(post_process(&joined, lang))
+    Ok(joined)
 }
 
 /// Kokoro's phoneme post-processing chain — see kokoro-js source. `fancy-regex`'s
 /// `replace_all` returns a `Cow<'_, str>` so each pass gets owned.
 fn post_process(input: &str, lang: &str) -> String {
-    let mut s = input.to_string();
+    // Strip U+200D (zero-width joiner / tie bar). espeak-ng `--ipa=3` inserts
+    // it inside diphthongs like `nˈa‍ɪn`; the phonemizer-WASM build kokoro-js
+    // uses doesn't produce it. The tie is invisible to the char-level
+    // tokenizer either way (not in vocab), but keeping it around breaks
+    // constant-width look-behinds like `POST_NINETY` that expect `nˈaɪn`.
+    let mut s: String = input.chars().filter(|&c| c != '\u{200D}').collect();
     s = POST_KOKORO.replace_all(&s, "kˈoʊkəɹoʊ").into_owned();
     s = POST_KOKORO_GB.replace_all(&s, "kˈəʊkəɹəʊ").into_owned();
     s = s.replace('ʲ', "j");

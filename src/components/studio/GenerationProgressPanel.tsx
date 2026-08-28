@@ -202,7 +202,7 @@ export function GenerationProgressPanel() {
     if (hasError) return generationSession.error
     if (isStitching) return 'Almost done — stitching full mix'
     if (showChillCopy) {
-      return `Sit back and relax — we're working through ${total} paragraphs.`
+      return `Prepping your run — voicing ${total} paragraph${total === 1 ? '' : 's'}.`
     }
     if (completed < 2 && generationSession.active) {
       if (isModelLoading) {

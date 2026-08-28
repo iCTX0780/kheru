@@ -81,6 +81,7 @@ export function StudioShell({
   const [importStep, setImportStep] = useState<ImportStep>('paste')
   const [parsedBlocks, setParsedBlocks] = useState<ImportBlock[]>([])
   const [speakerVoices, setSpeakerVoices] = useState<Record<string, string>>({})
+  const [monologueVoice, setMonologueVoice] = useState<string>('')
 
   const importParagraphs = useStudioStore((s) => s.importParagraphs)
   const storeVoices = useStudioStore((s) => s.voices)
@@ -97,10 +98,15 @@ export function StudioShell({
     setImportStep('paste')
     setParsedBlocks([])
     setSpeakerVoices({})
+    setMonologueVoice('')
   }
 
-  const finishImport = (blocks: ImportBlock[], voiceMap?: Record<string, string>) => {
-    importParagraphs(blocks, voiceMap)
+  const finishImport = (
+    blocks: ImportBlock[],
+    voiceMap?: Record<string, string>,
+    defaultVoice?: string
+  ) => {
+    importParagraphs(blocks, voiceMap, defaultVoice)
     resetImport()
     setImportOpen(false)
   }
@@ -110,12 +116,15 @@ export function StudioShell({
     if (blocks.length === 0) return
 
     const speakers = collectImportSpeakers(blocks)
+    setParsedBlocks(blocks)
+
     if (speakers.length === 0) {
-      finishImport(blocks)
+      setSpeakerVoices({})
+      setMonologueVoice(fallbackVoice)
+      setImportStep('speakers')
       return
     }
 
-    setParsedBlocks(blocks)
     setSpeakerVoices(
       buildSpeakerVoiceDefaults(
         speakers.map((speaker) => speaker.label),
@@ -126,8 +135,14 @@ export function StudioShell({
     setImportStep('speakers')
   }
 
+  const isMonologueImport = importSpeakers.length === 0
+
   const handleImportConfirm = () => {
     if (parsedBlocks.length === 0) return
+    if (isMonologueImport) {
+      finishImport(parsedBlocks, undefined, monologueVoice || fallbackVoice)
+      return
+    }
     finishImport(parsedBlocks, speakerVoices)
   }
 
@@ -259,13 +274,23 @@ export function StudioShell({
           <DialogContent className="!flex max-h-[min(90dvh,40rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
             <DialogHeader className="shrink-0 gap-2 border-b border-border px-4 py-4">
               <DialogTitle>
-                {importStep === 'paste' ? 'Import script' : 'Assign voices'}
+                {importStep === 'paste'
+                  ? 'Import script'
+                  : isMonologueImport
+                    ? 'Choose a voice'
+                    : 'Assign voices'}
               </DialogTitle>
               <DialogDescription>
                 {importStep === 'paste' ? (
                   <>
-                    Paste a script with speaker labels (e.g. INTERVIEWER:, YOU:, Shadi:). Wrapped
-                    lines merge into the previous turn.
+                    Paste a script — with or without speaker labels. Labels like INTERVIEWER: or
+                    Shadi: split into turns; plain text becomes one narrator.
+                  </>
+                ) : isMonologueImport ? (
+                  <>
+                    {totalImportParagraphs} paragraph{totalImportParagraphs === 1 ? '' : 's'} · no
+                    speaker labels found. Pick a voice for all of them — you can change any
+                    paragraph individually afterwards.
                   </>
                 ) : (
                   <>
@@ -285,6 +310,26 @@ export function StudioShell({
                   placeholder={'INTERVIEWER: Thanks for joining...\nYOU: Sure. I\'m a technical lead...'}
                   className="min-h-32 max-h-[min(55dvh,28rem)] w-full resize-none overflow-y-auto overscroll-contain font-mono text-sm"
                 />
+              </div>
+            ) : isMonologueImport ? (
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                <FieldGroup className="gap-4">
+                  <Field>
+                    <FieldLabel className="text-xs text-muted-foreground">
+                      All paragraphs
+                      <span className="ml-1.5 font-normal">
+                        · {totalImportParagraphs} paragraph
+                        {totalImportParagraphs === 1 ? '' : 's'}
+                      </span>
+                    </FieldLabel>
+                    <VoicePicker
+                      voices={voices}
+                      value={monologueVoice || fallbackVoice}
+                      onValueChange={setMonologueVoice}
+                      disabled={isLoadingVoices || voices.length === 0}
+                    />
+                  </Field>
+                </FieldGroup>
               </div>
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
@@ -313,7 +358,12 @@ export function StudioShell({
 
             <DialogFooter className="shrink-0">
               {importStep === 'speakers' && (
-                <Button type="button" variant="outline" onClick={() => setImportStep('paste')}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setImportStep('paste')}
+                  className="sm:mr-auto"
+                >
                   Back
                 </Button>
               )}

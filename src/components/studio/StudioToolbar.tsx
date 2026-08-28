@@ -10,13 +10,6 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import { ExportMenu } from '@/components/ExportMenu'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -152,6 +145,20 @@ export function StudioToolbar({
         >
           <Button
             type="button"
+            variant={hasText ? 'secondary' : 'default'}
+            size="sm"
+            disabled={disabled}
+            onClick={onImportOpen}
+            title="Paste an AI-generated script to rehearse"
+          >
+            <FileUp data-icon="inline-start" />
+            Import script
+          </Button>
+
+          <Separator orientation="vertical" className="mx-1 hidden h-6 sm:block" />
+
+          <Button
+            type="button"
             variant="secondary"
             size="sm"
             disabled={disabled || generationLocked || !canPlay}
@@ -160,8 +167,6 @@ export function StudioToolbar({
             {isPlaying ? <Pause data-icon="inline-start" /> : <Play data-icon="inline-start" />}
             {isPlaying ? 'Pause' : 'Play'}
           </Button>
-
-          <Separator orientation="vertical" className="mx-1 hidden h-6 sm:block" />
 
           <Button
             type="button"
@@ -176,6 +181,7 @@ export function StudioToolbar({
 
           <Button
             type="button"
+            variant={hasText ? 'default' : 'outline'}
             size="sm"
             disabled={disabled || chapterGenerating || !hasText}
             onClick={() => void onGenerateChapter()}
@@ -194,20 +200,6 @@ export function StudioToolbar({
           </Button>
 
           <Separator orientation="vertical" className="mx-1 hidden h-6 sm:block" />
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button type="button" variant="ghost" size="sm" disabled={disabled} />}
-            >
-              <FileUp data-icon="inline-start" />
-              Import
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={onImportOpen}>Import script</DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
 
           <ExportMenu />
 

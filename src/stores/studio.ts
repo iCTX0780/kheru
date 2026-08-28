@@ -138,7 +138,11 @@ export interface StudioStore {
     activeChapterId: string
   }) => void
   addParagraph: (afterId?: string) => void
-  importParagraphs: (blocks: ImportBlock[], speakerVoiceMap?: Record<string, string>) => void
+  importParagraphs: (
+    blocks: ImportBlock[],
+    speakerVoiceMap?: Record<string, string>,
+    defaultVoice?: string
+  ) => void
   updateParagraph: (id: string, updates: Partial<Pick<Paragraph, 'text' | 'voice' | 'lengthScale'>>) => void
   removeParagraph: (id: string) => void
   moveParagraph: (id: string, direction: 'up' | 'down') => void
@@ -470,9 +474,9 @@ export const useStudioStore = create<StudioStore>()((set) => ({
       })
     }),
 
-  importParagraphs: (blocks, speakerVoiceMap) =>
+  importParagraphs: (blocks, speakerVoiceMap, defaultVoice) =>
     set((state) => {
-      const fallback = state.voices[0] || DEFAULT_VOICE_ID
+      const fallback = defaultVoice || state.voices[0] || DEFAULT_VOICE_ID
       const imported = blocks
         .filter((block) => block.text.trim())
         .map((block) => {

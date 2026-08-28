@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ParagraphBlock } from '@/components/ParagraphBlock'
 import { ScriptComposer } from '@/components/studio/ScriptComposer'
 import { scrollToParagraph } from '@/lib/scroll-to-paragraph'
 import type { VoiceInfo } from '@/lib/voices'
 import type { Paragraph } from '@/stores/studio'
+import { FileUp } from 'lucide-react'
 
 interface ScriptTimelineProps {
   paragraphs: Paragraph[]
@@ -59,6 +61,30 @@ export function ScriptTimeline({
       <div className="relative flex flex-col gap-8">
         {!hydrated ? (
           <TimelineSkeleton />
+        ) : paragraphs.every((p) => !p.text.trim()) ? (
+          <div className="flex flex-col items-center gap-6 py-16 text-center">
+            <div className="max-w-md space-y-2">
+              <h2 className="font-heading text-2xl font-semibold tracking-tight">
+                Rehearse anything you're about to say
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Drop in an AI-generated interview, pitch, or talk. Assign voices, generate,
+                then take it into your ears while you drive or walk.
+              </p>
+            </div>
+            {onImportOpen && (
+              <Button type="button" size="lg" onClick={onImportOpen}>
+                <FileUp data-icon="inline-start" />
+                Import script
+              </Button>
+            )}
+            <div className="w-full max-w-2xl border-t border-border pt-6">
+              <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+                Or start typing
+              </p>
+              <ScriptComposer onImportOpen={onImportOpen} />
+            </div>
+          </div>
         ) : (
           <>
             {paragraphs.map((paragraph, index) => {
